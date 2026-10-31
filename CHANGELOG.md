@@ -4,6 +4,8 @@ All notable changes to affiliate-engine. Format: Keep a Changelog; versioning: s
 
 ## [Unreleased]
 
+## [v0.6.0] — 2026-10-31
+
 ### Changed
 - **Open source.** The engine is published under the GNU Affero General Public License v3 (AGPL-3.0). There is no license key. The Shopify app, the WordPress plugin and the managed cloud are separate products and are not part of this repository.
 
