@@ -4,6 +4,12 @@ All notable changes to affiliate-engine. Format: Keep a Changelog; versioning: s
 
 ## [Unreleased]
 
+## [v0.6.1] - 2026-10-31
+
+### Changed
+- **New repository name.** The repository is now `thebigasif/affiliate-tracking`. GitHub redirects the old address. Docker images are published as `ghcr.io/thebigasif/affiliate-tracking` from this release on; `ghcr.io/thebigasif/affiliate-engine:v0.6.0` stays available. The binary name and the Go module path do not change.
+- **README and docs.** The README is a plain introduction with screenshots, and the technical reference moved to `docs/`.
+
 ## [v0.6.0] — 2026-10-31
 
 ### Changed

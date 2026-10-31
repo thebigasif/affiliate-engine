@@ -2,14 +2,14 @@
 
 <p>
   <a href="LICENSE"><img alt="License: AGPL-3.0" src="https://img.shields.io/badge/license-AGPL--3.0-blue"></a>
-  <a href="https://github.com/thebigasif/affiliate-engine/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/thebigasif/affiliate-engine"></a>
-  <a href="https://github.com/thebigasif/affiliate-engine/pkgs/container/affiliate-engine"><img alt="Docker image on ghcr.io" src="https://img.shields.io/badge/docker-ghcr.io-2496ED"></a>
-  <a href="https://github.com/thebigasif/affiliate-engine/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/thebigasif/affiliate-engine"></a>
+  <a href="https://github.com/thebigasif/affiliate-tracking/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/thebigasif/affiliate-tracking"></a>
+  <a href="https://github.com/thebigasif/affiliate-tracking/pkgs/container/affiliate-tracking"><img alt="Docker image on ghcr.io" src="https://img.shields.io/badge/docker-ghcr.io-2496ED"></a>
+  <a href="https://github.com/thebigasif/affiliate-tracking/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/thebigasif/affiliate-tracking"></a>
 </p>
 
 Run your own affiliate program on your own server. AffiliateTracking tracks partner clicks, credits sales from Stripe, Paddle and other billing tools, holds suspicious commissions before you pay them, and works out who to pay. It is a free, self-hosted alternative to Rewardful, FirstPromoter, Tapfiliate and Tolt, and it never takes a cut of your affiliate revenue.
 
-[Website](https://affiliatetracking.co) · [Product tour](https://affiliatetracking.co/tour) · [Self-host guide](https://affiliatetracking.co/self-host) · [Docs](docs/) · [Discussions](https://github.com/thebigasif/affiliate-engine/discussions)
+[Website](https://affiliatetracking.co) · [Product tour](https://affiliatetracking.co/tour) · [Self-host guide](https://affiliatetracking.co/self-host) · [Docs](docs/) · [Discussions](https://github.com/thebigasif/affiliate-tracking/discussions)
 
 ![The AffiliateTracking admin overview: clicks, sales, payouts to approve, held commissions and the tasks that need you today, on demo data](docs/img/tab-overview.webp)
 
@@ -38,10 +38,10 @@ Run your own affiliate program on your own server. AffiliateTracking tracks part
 
 ## Quickstart
 
-Download the binary for your system from [Releases](https://github.com/thebigasif/affiliate-engine/releases/latest), or run the Docker image:
+Download the binary for your system from [Releases](https://github.com/thebigasif/affiliate-tracking/releases/latest), or run the Docker image:
 
 ```bash
-docker run -p 8080:8080 -v ae-data:/data ghcr.io/thebigasif/affiliate-engine:latest
+docker run -p 8080:8080 -v ae-data:/data ghcr.io/thebigasif/affiliate-tracking:latest
 ```
 
 Or build it from source with Go:
@@ -93,9 +93,9 @@ The Shopify app and the [WordPress plugin](https://affiliatetracking.co/wordpres
 
 ## Community
 
-- Ask questions and share ideas in [Discussions](https://github.com/thebigasif/affiliate-engine/discussions).
-- Report bugs in [Issues](https://github.com/thebigasif/affiliate-engine/issues). Report security problems privately, as [SECURITY.md](SECURITY.md) explains.
-- Want to help? Start with an issue labelled [good first issue](https://github.com/thebigasif/affiliate-engine/labels/good%20first%20issue).
+- Ask questions and share ideas in [Discussions](https://github.com/thebigasif/affiliate-tracking/discussions).
+- Report bugs in [Issues](https://github.com/thebigasif/affiliate-tracking/issues). Report security problems privately, as [SECURITY.md](SECURITY.md) explains.
+- Want to help? Start with an issue labelled [good first issue](https://github.com/thebigasif/affiliate-tracking/labels/good%20first%20issue).
 - If AffiliateTracking is useful to you, star the repository so others can find it.
 
 ## License
