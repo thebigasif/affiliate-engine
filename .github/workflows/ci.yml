@@ -1,0 +1,149 @@
+name: ci
+
+# Runs on GitHub-hosted runners. Pull requests from forks run here too,
+# so no job uses a secret or a self-hosted machine. Postgres is a
+# throwaway service container. Each suite runs once per PR head; main
+# after a merge gets the quick gates only.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+  workflow_dispatch: {}
+
+# Least privilege: no repo tokens needed for tests.
+permissions:
+  contents: read
+
+# Rapid pushes: cancel the superseded run, keep the newest.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GOFLAGS: -buildvcs=false
+
+# bash -eo pipefail: a step that pipes go test into tee must fail when
+# go test fails (the runner default, bash -e, takes tee's exit code).
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  gates:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0 # full history: gitleaks scans old commits too
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Gitleaks (full-history secret scan)
+        # The sha256 is from gitleaks_8.28.0_checksums.txt of that release.
+        # Bump the version and the sum together.
+        env:
+          GITLEAKS_SHA256: a65b5253807a68ac0cafa4414031fd740aeb55f54fb7e55f386acb52e6a840eb
+        run: |
+          mkdir -p "$RUNNER_TEMP/gitleaks"
+          tgz="$RUNNER_TEMP/gitleaks/gitleaks.tar.gz"
+          curl -fsSL -o "$tgz" https://github.com/gitleaks/gitleaks/releases/download/v8.28.0/gitleaks_8.28.0_linux_x64.tar.gz
+          echo "$GITLEAKS_SHA256  $tgz" | sha256sum -c -
+          tar -xzf "$tgz" -C "$RUNNER_TEMP/gitleaks" gitleaks
+          "$RUNNER_TEMP/gitleaks/gitleaks" detect --source . --config .gitleaks.toml --redact --exit-code 1 --no-banner
+      - name: Vet
+        run: make vet
+      # Tool versions are pinned so a new upstream release cannot break the
+      # zero-findings gates overnight. Bump them on purpose.
+      - name: Staticcheck (zero-findings gate)
+        # tools/staticcheck pins v0.8.1 with an x/tools that reads Go
+        # 1.27.2 export data (v0.8.1's own x/tools stops at 1.27.1).
+        run: |
+          go build -C tools/staticcheck -o "$PWD/.bin/staticcheck" honnef.co/go/tools/cmd/staticcheck
+          .bin/staticcheck ./...
+      - name: Gofumpt (format gate)
+        run: |
+          go run mvdan.cc/gofumpt@v0.12.0 -l . > fmt.out
+          if [ -s fmt.out ]; then
+            echo "gofumpt would reformat:"; cat fmt.out; exit 1
+          fi
+      - name: Gosec (zero-findings gate)
+        run: go run github.com/securego/gosec/v2/cmd/gosec@v2.29.0 -quiet ./...
+      - name: Govulncheck (known-vuln gate)
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
+      - name: Cross-compile proof (CGO-free)
+        run: make crossbuild
+
+  # The whole suite once on each engine. Skipped on main after a merge:
+  # the PR head it merged already passed.
+  test:
+    if: github.event_name != 'push' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    services:
+      postgres:
+        image: postgres:18.6@sha256:74935e72241653ca55e0414067e6d8763aceb8a810eb51b452253ec3dcfc4336
+        env:
+          POSTGRES_PASSWORD: ci-only-throwaway
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s
+          --health-timeout 5s --health-retries 20
+    env:
+      PGPASSWORD: ci-only-throwaway
+      PG_ADMIN: postgres://postgres:ci-only-throwaway@localhost:5432/postgres?sslmode=disable
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Engine suite (SQLite) with coverage
+        run: |
+          go test ./... -count=1 -covermode=atomic -coverprofile=cover.out 2>&1 | tee test.log
+          {
+            echo "### Coverage"
+            echo '```'
+            go tool cover -func cover.out | tail -1
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: PG migrations apply, then re-apply (idempotency proof)
+        run: |
+          db="ae_migrate_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}"
+          psql -h localhost -U postgres -c "DROP DATABASE IF EXISTS $db" -c "CREATE DATABASE $db"
+          go build -o ae ./cmd/affiliate-engine
+          dsn="postgres://postgres:${PGPASSWORD}@localhost:5432/$db?sslmode=disable"
+          ./ae -db "$dsn" migrate && ./ae -db "$dsn" migrate
+          psql -h localhost -U postgres -c "DROP DATABASE $db"
+      - name: Full suite on Postgres
+        env:
+          AE_TEST_ENGINES: postgres
+          AE_TEST_PG_ADMIN_DSN: ${{ env.PG_ADMIN }}
+        run: go test ./... -count=1 -p 2 2>&1 | tee test-pg.log
+      - name: Race (money paths)
+        env:
+          AE_TEST_ENGINES: postgres
+          AE_TEST_PG_ADMIN_DSN: ${{ env.PG_ADMIN }}
+        run: go test ./internal/ledger/... ./internal/commissions/... ./internal/payouts/... -race -count=1
+      - name: Upload failure logs
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: test-output
+          path: |
+            test.log
+            test-pg.log
+          retention-days: 7

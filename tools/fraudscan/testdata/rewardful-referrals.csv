@@ -1,0 +1,15 @@
+affiliate_email,affiliate_name,customer_email,stripe_customer_id,coupon,amount,commission,status,created_at
+Owner@Gmail.com,Owner,o.w.n.e.r+deal@gmail.com,cus_1,,49.00,14.70,paid,2026-03-02T09:00:00Z
+owner@gmail.com,Owner,owner@googlemail.com,cus_2,,49.00,14.70,pending,2026-03-02T10:00:00Z
+owner@gmail.com,Owner,real.customer@acme.com,cus_3,,49.00,14.70,paid,2026-03-02T11:00:00Z
+jane@shop.io,Jane Doe,x1@buyer.com,cus_4,,99.00,29.70,paid,2026-03-03T09:00:00Z
+jane@shop.io,Jane Doe,x2@buyer.com,cus_5,,99.00,29.70,paid,2026-03-03T10:00:00Z
+bob@shop.io,Bob,X1@Buyer.com,cus_6,,99.00,29.70,pending,2026-03-04T09:00:00Z
+bob@shop.io,Bob,x2@buyer.com,cus_7,,99.00,29.70,pending,2026-03-04T10:00:00Z
+jane@shop.io,Jane Doe,x3@buyer.com,cus_8,,99.00,29.70,pending,2026-03-05T09:00:00Z
+rick@refunds.io,Rick,r0@cust.io,cus_9,,19.00,5.70,refunded,2026-03-06T09:00:00Z
+rick@refunds.io,Rick,r1@cust.io,cus_10,,19.00,5.70,refunded,2026-03-06T10:00:00Z
+rick@refunds.io,Rick,r2@cust.io,cus_11,,19.00,5.70,paid,2026-03-06T11:00:00Z
+rick@refunds.io,Rick,r3@cust.io,cus_12,,19.00,5.70,paid,2026-03-06T12:00:00Z
+rick@refunds.io,Rick,r4@cust.io,cus_13,,19.00,5.70,paid,2026-03-06T13:00:00Z
+,,orphan@cust.io,cus_14,,10.00,3.00,paid,2026-03-07T09:00:00Z

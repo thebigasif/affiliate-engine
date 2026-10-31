@@ -1,0 +1,1770 @@
+{
+  "rewardful-affiliates.csv": {
+    "kind": "affiliates",
+    "parse": {
+      "rows": 4,
+      "affiliates": 4,
+      "skipped": 0,
+      "dup_emails": 0
+    },
+    "affiliates": [
+      {
+        "row": 2,
+        "email": "jane@shop.io",
+        "name": "Jane Doe",
+        "code": "janeslink",
+        "status": "active",
+        "coupon": "JANE20"
+      },
+      {
+        "row": 3,
+        "email": "bob@shop.io",
+        "name": "Bob",
+        "code": "janeslink",
+        "status": "active",
+        "coupon": ""
+      },
+      {
+        "row": 4,
+        "email": "banned@shop.io",
+        "name": "Bad",
+        "code": "person",
+        "status": "frozen",
+        "coupon": ""
+      },
+      {
+        "row": 5,
+        "email": "jane+promo@shop.io",
+        "name": "Jane Alias",
+        "code": "janes2",
+        "status": "active",
+        "coupon": ""
+      }
+    ],
+    "conversions": []
+  },
+  "firstpromoter-affiliates.csv": {
+    "kind": "affiliates",
+    "parse": {
+      "rows": 5,
+      "affiliates": 4,
+      "skipped": 1,
+      "dup_emails": 0
+    },
+    "affiliates": [
+      {
+        "row": 2,
+        "email": "one@saas.dev",
+        "name": "One PM",
+        "code": "ref_one",
+        "status": "active",
+        "coupon": "SAVE10"
+      },
+      {
+        "row": 3,
+        "email": "two@saas.dev",
+        "name": "Two",
+        "code": "ref_two",
+        "status": "frozen",
+        "coupon": ""
+      },
+      {
+        "row": 5,
+        "email": "o.n.e.pm@gmail.com",
+        "name": "One Gmail",
+        "code": "ref_g1",
+        "status": "active",
+        "coupon": ""
+      },
+      {
+        "row": 6,
+        "email": "onepm+b@gmail.com",
+        "name": "One Gmail B",
+        "code": "ref_g2",
+        "status": "active",
+        "coupon": ""
+      }
+    ],
+    "conversions": []
+  },
+  "tapfiliate-affiliates.csv": {
+    "kind": "affiliates",
+    "parse": {
+      "rows": 1,
+      "affiliates": 1,
+      "skipped": 0,
+      "dup_emails": 0
+    },
+    "affiliates": [
+      {
+        "row": 2,
+        "email": "tap@example.com",
+        "name": "",
+        "code": "tapslug",
+        "status": "active",
+        "coupon": ""
+      }
+    ],
+    "conversions": []
+  },
+  "tolt-affiliates.csv": {
+    "kind": "affiliates",
+    "parse": {
+      "rows": 2,
+      "affiliates": 1,
+      "skipped": 0,
+      "dup_emails": 1
+    },
+    "affiliates": [
+      {
+        "row": 2,
+        "email": "t@tolt.app",
+        "name": "T User",
+        "code": "tolt-handle",
+        "status": "active",
+        "coupon": "TOLT5"
+      }
+    ],
+    "conversions": []
+  },
+  "rewardful-referrals.csv": {
+    "kind": "conversions",
+    "parse": {
+      "rows": 14,
+      "conversions": 13,
+      "skipped": 1,
+      "dup_emails": 0
+    },
+    "affiliates": [
+      {
+        "email": "owner@gmail.com",
+        "key": "owner@gmail.com",
+        "status": "active"
+      },
+      {
+        "email": "jane@shop.io",
+        "key": "jane@shop.io",
+        "status": "active"
+      },
+      {
+        "email": "bob@shop.io",
+        "key": "bob@shop.io",
+        "status": "active"
+      },
+      {
+        "email": "rick@refunds.io",
+        "key": "rick@refunds.io",
+        "status": "active"
+      }
+    ],
+    "conversions": [
+      {
+        "row": 2,
+        "affiliate": "owner@gmail.com",
+        "affiliate_email": "owner@gmail.com",
+        "customer_email": "o.w.n.e.r+deal@gmail.com",
+        "customer_key": "cus_1",
+        "coupon": "",
+        "commission_cents": 1470,
+        "ts": "2026-03-02T09:00:00Z",
+        "ip": ""
+      },
+      {
+        "row": 3,
+        "affiliate": "owner@gmail.com",
+        "affiliate_email": "owner@gmail.com",
+        "customer_email": "owner@googlemail.com",
+        "customer_key": "cus_2",
+        "coupon": "",
+        "commission_cents": 1470,
+        "ts": "2026-03-02T10:00:00Z",
+        "ip": ""
+      },
+      {
+        "row": 4,
+        "affiliate": "owner@gmail.com",
+        "affiliate_email": "owner@gmail.com",
+        "customer_email": "real.customer@acme.com",
+        "customer_key": "cus_3",
+        "coupon": "",
+        "commission_cents": 1470,
+        "ts": "2026-03-02T11:00:00Z",
+        "ip": ""
+      },
+      {
+        "row": 5,
+        "affiliate": "jane@shop.io",
+        "affiliate_email": "jane@shop.io",
+        "customer_email": "x1@buyer.com",
+        "customer_key": "cus_4",
+        "coupon": "",
+        "commission_cents": 2970,
+        "ts": "2026-03-03T09:00:00Z",
+        "ip": ""
+      },
+      {
+        "row": 6,
+        "affiliate": "jane@shop.io",
+        "affiliate_email": "jane@shop.io",
+        "customer_email": "x2@buyer.com",
+        "customer_key": "cus_5",
+        "coupon": "",
+        "commission_cents": 2970,
+        "ts": "2026-03-03T10:00:00Z",
+        "ip": ""
+      },
+      {
+        "row": 7,
+        "affiliate": "bob@shop.io",
+        "affiliate_email": "bob@shop.io",
+        "customer_email": "x1@buyer.com",
+        "customer_key": "cus_6",
+        "coupon": "",
+        "commission_cents": 2970,
+        "ts": "2026-03-04T09:00:00Z",
+        "ip": ""
+      },
+      {
+        "row": 8,
+        "affiliate": "bob@shop.io",
+        "affiliate_email": "bob@shop.io",
+        "customer_email": "x2@buyer.com",
+        "customer_key": "cus_7",
+        "coupon": "",
+        "commission_cents": 2970,
+        "ts": "2026-03-04T10:00:00Z",
+        "ip": ""
+      },
+      {
+        "row": 9,
+        "affiliate": "jane@shop.io",
+        "affiliate_email": "jane@shop.io",
+        "customer_email": "x3@buyer.com",
+        "customer_key": "cus_8",
+        "coupon": "",
+        "commission_cents": 2970,
+        "ts": "2026-03-05T09:00:00Z",
+        "ip": ""
+      },
+      {
+        "row": 10,
+        "affiliate": "rick@refunds.io",
+        "affiliate_email": "rick@refunds.io",
+        "customer_email": "r0@cust.io",
+        "customer_key": "cus_9",
+        "coupon": "",
+        "commission_cents": 570,
+        "ts": "2026-03-06T09:00:00Z",
+        "ip": ""
+      },
+      {
+        "row": 11,
+        "affiliate": "rick@refunds.io",
+        "affiliate_email": "rick@refunds.io",
+        "customer_email": "r1@cust.io",
+        "customer_key": "cus_10",
+        "coupon": "",
+        "commission_cents": 570,
+        "ts": "2026-03-06T10:00:00Z",
+        "ip": ""
+      },
+      {
+        "row": 12,
+        "affiliate": "rick@refunds.io",
+        "affiliate_email": "rick@refunds.io",
+        "customer_email": "r2@cust.io",
+        "customer_key": "cus_11",
+        "coupon": "",
+        "commission_cents": 570,
+        "ts": "2026-03-06T11:00:00Z",
+        "ip": ""
+      },
+      {
+        "row": 13,
+        "affiliate": "rick@refunds.io",
+        "affiliate_email": "rick@refunds.io",
+        "customer_email": "r3@cust.io",
+        "customer_key": "cus_12",
+        "coupon": "",
+        "commission_cents": 570,
+        "ts": "2026-03-06T12:00:00Z",
+        "ip": ""
+      },
+      {
+        "row": 14,
+        "affiliate": "rick@refunds.io",
+        "affiliate_email": "rick@refunds.io",
+        "customer_email": "r4@cust.io",
+        "customer_key": "cus_13",
+        "coupon": "",
+        "commission_cents": 570,
+        "ts": "2026-03-06T13:00:00Z",
+        "ip": ""
+      }
+    ]
+  },
+  "firstpromoter-commissions.csv": {
+    "kind": "conversions",
+    "parse": {
+      "rows": 10,
+      "conversions": 10,
+      "skipped": 0,
+      "dup_emails": 0
+    },
+    "affiliates": [
+      {
+        "email": "ann@fp.dev",
+        "key": "ann@fp.dev",
+        "status": "active"
+      },
+      {
+        "email": "leaker@fp.dev",
+        "key": "leaker@fp.dev",
+        "status": "active"
+      },
+      {
+        "email": "dup@gmail.com",
+        "key": "dup@gmail.com",
+        "status": "active"
+      },
+      {
+        "email": "d.u.p+2@gmail.com",
+        "key": "d.u.p+2@gmail.com",
+        "status": "active"
+      }
+    ],
+    "conversions": [
+      {
+        "row": 2,
+        "affiliate": "ann@fp.dev",
+        "affiliate_email": "ann@fp.dev",
+        "customer_email": "c1@corp.io",
+        "customer_key": "cust_1",
+        "coupon": "",
+        "commission_cents": 3600,
+        "ts": "2026-03-09T15:00:00Z",
+        "ip": ""
+      },
+      {
+        "row": 3,
+        "affiliate": "ann@fp.dev",
+        "affiliate_email": "ann@fp.dev",
+        "customer_email": "c2@corp.io",
+        "customer_key": "cust_2",
+        "coupon": "",
+        "commission_cents": 3600,
+        "ts": "2026-03-09T16:00:00Z",
+        "ip": ""
+      },
+      {
+        "row": 4,
+        "affiliate": "ann@fp.dev",
+        "affiliate_email": "ann@fp.dev",
+        "customer_email": "c3@corp.io",
+        "customer_key": "cust_3",
+        "coupon": "",
+        "commission_cents": 3600,
+        "ts": "2026-03-09T17:00:00Z",
+        "ip": ""
+      },
+      {
+        "row": 5,
+        "affiliate": "ann@fp.dev",
+        "affiliate_email": "ann@fp.dev",
+        "customer_email": "c4@corp.io",
+        "customer_key": "cust_4",
+        "coupon": "",
+        "commission_cents": 3600,
+        "ts": "2026-03-09T18:00:00Z",
+        "ip": ""
+      },
+      {
+        "row": 6,
+        "affiliate": "leaker@fp.dev",
+        "affiliate_email": "leaker@fp.dev",
+        "customer_email": "c1@corp.io",
+        "customer_key": "cust_1",
+        "coupon": "LEAK50",
+        "commission_cents": 1800,
+        "ts": "2026-03-10T15:00:00Z",
+        "ip": ""
+      },
+      {
+        "row": 7,
+        "affiliate": "leaker@fp.dev",
+        "affiliate_email": "leaker@fp.dev",
+        "customer_email": "c2@corp.io",
+        "customer_key": "cust_2",
+        "coupon": "LEAK50",
+        "commission_cents": 1800,
+        "ts": "2026-03-11T15:00:00Z",
+        "ip": ""
+      },
+      {
+        "row": 8,
+        "affiliate": "leaker@fp.dev",
+        "affiliate_email": "leaker@fp.dev",
+        "customer_email": "c3@corp.io",
+        "customer_key": "cust_3",
+        "coupon": "LEAK50",
+        "commission_cents": 1800,
+        "ts": "2026-03-12T15:00:00Z",
+        "ip": ""
+      },
+      {
+        "row": 9,
+        "affiliate": "leaker@fp.dev",
+        "affiliate_email": "leaker@fp.dev",
+        "customer_email": "c4@corp.io",
+        "customer_key": "cust_4",
+        "coupon": "LEAK50",
+        "commission_cents": 1800,
+        "ts": "2026-03-13T15:00:00Z",
+        "ip": ""
+      },
+      {
+        "row": 10,
+        "affiliate": "dup@gmail.com",
+        "affiliate_email": "dup@gmail.com",
+        "customer_email": "d1@corp.io",
+        "customer_key": "cust_d1",
+        "coupon": "",
+        "commission_cents": 36000,
+        "ts": "2026-03-15T15:00:00Z",
+        "ip": ""
+      },
+      {
+        "row": 11,
+        "affiliate": "d.u.p+2@gmail.com",
+        "affiliate_email": "d.u.p+2@gmail.com",
+        "customer_email": "d2@corp.io",
+        "customer_key": "cust_d2",
+        "coupon": "",
+        "commission_cents": 36000,
+        "ts": "2026-03-15T16:00:00Z",
+        "ip": ""
+      }
+    ]
+  },
+  "tapfiliate-conversions.csv": {
+    "kind": "conversions",
+    "parse": {
+      "rows": 60,
+      "conversions": 60,
+      "skipped": 0,
+      "dup_emails": 0
+    },
+    "affiliates": [
+      {
+        "email": "burst@tap.io",
+        "key": "burst@tap.io",
+        "status": "active"
+      },
+      {
+        "email": "farm1@tap.io",
+        "key": "farm1@tap.io",
+        "status": "active"
+      },
+      {
+        "email": "farm2@tap.io",
+        "key": "farm2@tap.io",
+        "status": "active"
+      },
+      {
+        "email": "solo@tap.io",
+        "key": "solo@tap.io",
+        "status": "active"
+      }
+    ],
+    "conversions": [
+      {
+        "row": 2,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b0",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:00:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 3,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b1",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:01:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 4,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b2",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:02:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 5,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b3",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:03:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 6,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b4",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:04:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 7,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b5",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:05:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 8,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b6",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:06:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 9,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b7",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:07:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 10,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b8",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:08:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 11,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b9",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:09:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 12,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b10",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:10:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 13,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b11",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:11:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 14,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b12",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:12:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 15,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b13",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:13:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 16,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b14",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:14:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 17,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b15",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:15:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 18,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b16",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:16:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 19,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b17",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:17:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 20,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b18",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:18:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 21,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b19",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:19:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 22,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b20",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:20:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 23,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b21",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:21:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 24,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b22",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:22:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 25,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b23",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:23:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 26,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b24",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:24:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 27,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b25",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:25:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 28,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b26",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:26:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 29,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b27",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:27:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 30,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b28",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:28:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 31,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b29",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:29:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 32,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b30",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:30:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 33,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b31",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:31:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 34,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b32",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:32:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 35,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b33",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:33:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 36,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b34",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:34:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 37,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b35",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:35:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 38,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b36",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:36:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 39,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b37",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:37:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 40,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b38",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:38:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 41,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b39",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:39:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 42,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b40",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:40:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 43,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b41",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:41:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 44,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b42",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:42:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 45,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b43",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:43:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 46,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b44",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:44:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 47,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b45",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:45:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 48,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b46",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:46:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 49,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b47",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:47:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 50,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b48",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:48:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 51,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b49",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:49:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 52,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b50",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:50:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 53,
+        "affiliate": "burst@tap.io",
+        "affiliate_email": "burst@tap.io",
+        "customer_email": "",
+        "customer_key": "b51",
+        "coupon": "",
+        "commission_cents": 400,
+        "ts": "2026-03-16T10:51:00Z",
+        "ip": "192.0.2.50"
+      },
+      {
+        "row": 54,
+        "affiliate": "farm1@tap.io",
+        "affiliate_email": "farm1@tap.io",
+        "customer_email": "",
+        "customer_key": "f0",
+        "coupon": "",
+        "commission_cents": 1000,
+        "ts": "2026-03-16T12:00:00Z",
+        "ip": "10.0.0.1"
+      },
+      {
+        "row": 55,
+        "affiliate": "farm2@tap.io",
+        "affiliate_email": "farm2@tap.io",
+        "customer_email": "",
+        "customer_key": "f1",
+        "coupon": "",
+        "commission_cents": 1000,
+        "ts": "2026-03-16T12:01:00Z",
+        "ip": "10.0.0.1"
+      },
+      {
+        "row": 61,
+        "affiliate": "solo@tap.io",
+        "affiliate_email": "solo@tap.io",
+        "customer_email": "",
+        "customer_key": "s1",
+        "coupon": "",
+        "commission_cents": 1500,
+        "ts": "2026-03-16T15:00:00Z",
+        "ip": "198.51.100.7"
+      },
+      {
+        "row": 56,
+        "affiliate": "farm1@tap.io",
+        "affiliate_email": "farm1@tap.io",
+        "customer_email": "",
+        "customer_key": "f2",
+        "coupon": "",
+        "commission_cents": 1000,
+        "ts": "2026-03-17T12:02:00Z",
+        "ip": "10.0.0.2"
+      },
+      {
+        "row": 57,
+        "affiliate": "farm2@tap.io",
+        "affiliate_email": "farm2@tap.io",
+        "customer_email": "",
+        "customer_key": "f3",
+        "coupon": "",
+        "commission_cents": 1000,
+        "ts": "2026-03-17T12:03:00Z",
+        "ip": "10.0.0.2"
+      },
+      {
+        "row": 58,
+        "affiliate": "farm1@tap.io",
+        "affiliate_email": "farm1@tap.io",
+        "customer_email": "",
+        "customer_key": "f4",
+        "coupon": "",
+        "commission_cents": 1000,
+        "ts": "2026-03-18T12:04:00Z",
+        "ip": "10.0.0.3"
+      },
+      {
+        "row": 59,
+        "affiliate": "farm2@tap.io",
+        "affiliate_email": "farm2@tap.io",
+        "customer_email": "",
+        "customer_key": "f5",
+        "coupon": "",
+        "commission_cents": 1000,
+        "ts": "2026-03-18T12:05:00Z",
+        "ip": "10.0.0.2"
+      },
+      {
+        "row": 60,
+        "affiliate": "farm1@tap.io",
+        "affiliate_email": "farm1@tap.io",
+        "customer_email": "",
+        "customer_key": "f6",
+        "coupon": "",
+        "commission_cents": 1000,
+        "ts": "2026-03-19T12:06:00Z",
+        "ip": "10.0.0.1"
+      }
+    ]
+  },
+  "tolt-referrals.csv": {
+    "kind": "conversions",
+    "parse": {
+      "rows": 55,
+      "conversions": 55,
+      "skipped": 0,
+      "dup_emails": 0
+    },
+    "affiliates": [
+      {
+        "email": "day@tolt.app",
+        "key": "day@tolt.app",
+        "status": "active"
+      },
+      {
+        "email": "night@tolt.app",
+        "key": "night@tolt.app",
+        "status": "active"
+      }
+    ],
+    "conversions": [
+      {
+        "row": 32,
+        "affiliate": "night@tolt.app",
+        "affiliate_email": "night@tolt.app",
+        "customer_email": "buyer31@mail.com",
+        "customer_key": "buyer31@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-23T02:00:00Z",
+        "ip": ""
+      },
+      {
+        "row": 33,
+        "affiliate": "night@tolt.app",
+        "affiliate_email": "night@tolt.app",
+        "customer_email": "buyer32@mail.com",
+        "customer_key": "buyer32@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-23T02:11:00Z",
+        "ip": ""
+      },
+      {
+        "row": 34,
+        "affiliate": "night@tolt.app",
+        "affiliate_email": "night@tolt.app",
+        "customer_email": "buyer33@mail.com",
+        "customer_key": "buyer33@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-23T02:22:00Z",
+        "ip": ""
+      },
+      {
+        "row": 35,
+        "affiliate": "night@tolt.app",
+        "affiliate_email": "night@tolt.app",
+        "customer_email": "buyer34@mail.com",
+        "customer_key": "buyer34@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-23T02:33:00Z",
+        "ip": ""
+      },
+      {
+        "row": 36,
+        "affiliate": "night@tolt.app",
+        "affiliate_email": "night@tolt.app",
+        "customer_email": "buyer35@mail.com",
+        "customer_key": "buyer35@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-23T02:44:00Z",
+        "ip": ""
+      },
+      {
+        "row": 2,
+        "affiliate": "day@tolt.app",
+        "affiliate_email": "day@tolt.app",
+        "customer_email": "buyer1@mail.com",
+        "customer_key": "buyer1@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-23T14:00:00Z",
+        "ip": ""
+      },
+      {
+        "row": 3,
+        "affiliate": "day@tolt.app",
+        "affiliate_email": "day@tolt.app",
+        "customer_email": "buyer2@mail.com",
+        "customer_key": "buyer2@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-23T14:07:00Z",
+        "ip": ""
+      },
+      {
+        "row": 4,
+        "affiliate": "day@tolt.app",
+        "affiliate_email": "day@tolt.app",
+        "customer_email": "buyer3@mail.com",
+        "customer_key": "buyer3@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-23T14:14:00Z",
+        "ip": ""
+      },
+      {
+        "row": 5,
+        "affiliate": "day@tolt.app",
+        "affiliate_email": "day@tolt.app",
+        "customer_email": "buyer4@mail.com",
+        "customer_key": "buyer4@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-23T14:21:00Z",
+        "ip": ""
+      },
+      {
+        "row": 6,
+        "affiliate": "day@tolt.app",
+        "affiliate_email": "day@tolt.app",
+        "customer_email": "buyer5@mail.com",
+        "customer_key": "buyer5@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-23T14:28:00Z",
+        "ip": ""
+      },
+      {
+        "row": 37,
+        "affiliate": "night@tolt.app",
+        "affiliate_email": "night@tolt.app",
+        "customer_email": "buyer36@mail.com",
+        "customer_key": "buyer36@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-24T02:00:00Z",
+        "ip": ""
+      },
+      {
+        "row": 38,
+        "affiliate": "night@tolt.app",
+        "affiliate_email": "night@tolt.app",
+        "customer_email": "buyer37@mail.com",
+        "customer_key": "buyer37@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-24T02:11:00Z",
+        "ip": ""
+      },
+      {
+        "row": 39,
+        "affiliate": "night@tolt.app",
+        "affiliate_email": "night@tolt.app",
+        "customer_email": "buyer38@mail.com",
+        "customer_key": "buyer38@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-24T02:22:00Z",
+        "ip": ""
+      },
+      {
+        "row": 40,
+        "affiliate": "night@tolt.app",
+        "affiliate_email": "night@tolt.app",
+        "customer_email": "buyer39@mail.com",
+        "customer_key": "buyer39@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-24T02:33:00Z",
+        "ip": ""
+      },
+      {
+        "row": 41,
+        "affiliate": "night@tolt.app",
+        "affiliate_email": "night@tolt.app",
+        "customer_email": "buyer40@mail.com",
+        "customer_key": "buyer40@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-24T02:44:00Z",
+        "ip": ""
+      },
+      {
+        "row": 7,
+        "affiliate": "day@tolt.app",
+        "affiliate_email": "day@tolt.app",
+        "customer_email": "buyer6@mail.com",
+        "customer_key": "buyer6@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-24T14:00:00Z",
+        "ip": ""
+      },
+      {
+        "row": 8,
+        "affiliate": "day@tolt.app",
+        "affiliate_email": "day@tolt.app",
+        "customer_email": "buyer7@mail.com",
+        "customer_key": "buyer7@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-24T14:07:00Z",
+        "ip": ""
+      },
+      {
+        "row": 9,
+        "affiliate": "day@tolt.app",
+        "affiliate_email": "day@tolt.app",
+        "customer_email": "buyer8@mail.com",
+        "customer_key": "buyer8@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-24T14:14:00Z",
+        "ip": ""
+      },
+      {
+        "row": 10,
+        "affiliate": "day@tolt.app",
+        "affiliate_email": "day@tolt.app",
+        "customer_email": "buyer9@mail.com",
+        "customer_key": "buyer9@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-24T14:21:00Z",
+        "ip": ""
+      },
+      {
+        "row": 11,
+        "affiliate": "day@tolt.app",
+        "affiliate_email": "day@tolt.app",
+        "customer_email": "buyer10@mail.com",
+        "customer_key": "buyer10@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-24T14:28:00Z",
+        "ip": ""
+      },
+      {
+        "row": 42,
+        "affiliate": "night@tolt.app",
+        "affiliate_email": "night@tolt.app",
+        "customer_email": "buyer41@mail.com",
+        "customer_key": "buyer41@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-25T02:00:00Z",
+        "ip": ""
+      },
+      {
+        "row": 43,
+        "affiliate": "night@tolt.app",
+        "affiliate_email": "night@tolt.app",
+        "customer_email": "buyer42@mail.com",
+        "customer_key": "buyer42@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-25T02:11:00Z",
+        "ip": ""
+      },
+      {
+        "row": 44,
+        "affiliate": "night@tolt.app",
+        "affiliate_email": "night@tolt.app",
+        "customer_email": "buyer43@mail.com",
+        "customer_key": "buyer43@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-25T02:22:00Z",
+        "ip": ""
+      },
+      {
+        "row": 45,
+        "affiliate": "night@tolt.app",
+        "affiliate_email": "night@tolt.app",
+        "customer_email": "buyer44@mail.com",
+        "customer_key": "buyer44@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-25T02:33:00Z",
+        "ip": ""
+      },
+      {
+        "row": 46,
+        "affiliate": "night@tolt.app",
+        "affiliate_email": "night@tolt.app",
+        "customer_email": "buyer45@mail.com",
+        "customer_key": "buyer45@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-25T02:44:00Z",
+        "ip": ""
+      },
+      {
+        "row": 12,
+        "affiliate": "day@tolt.app",
+        "affiliate_email": "day@tolt.app",
+        "customer_email": "buyer11@mail.com",
+        "customer_key": "buyer11@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-25T14:00:00Z",
+        "ip": ""
+      },
+      {
+        "row": 13,
+        "affiliate": "day@tolt.app",
+        "affiliate_email": "day@tolt.app",
+        "customer_email": "buyer12@mail.com",
+        "customer_key": "buyer12@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-25T14:07:00Z",
+        "ip": ""
+      },
+      {
+        "row": 14,
+        "affiliate": "day@tolt.app",
+        "affiliate_email": "day@tolt.app",
+        "customer_email": "buyer13@mail.com",
+        "customer_key": "buyer13@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-25T14:14:00Z",
+        "ip": ""
+      },
+      {
+        "row": 15,
+        "affiliate": "day@tolt.app",
+        "affiliate_email": "day@tolt.app",
+        "customer_email": "buyer14@mail.com",
+        "customer_key": "buyer14@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-25T14:21:00Z",
+        "ip": ""
+      },
+      {
+        "row": 16,
+        "affiliate": "day@tolt.app",
+        "affiliate_email": "day@tolt.app",
+        "customer_email": "buyer15@mail.com",
+        "customer_key": "buyer15@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-25T14:28:00Z",
+        "ip": ""
+      },
+      {
+        "row": 47,
+        "affiliate": "night@tolt.app",
+        "affiliate_email": "night@tolt.app",
+        "customer_email": "buyer46@mail.com",
+        "customer_key": "buyer46@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-26T02:00:00Z",
+        "ip": ""
+      },
+      {
+        "row": 48,
+        "affiliate": "night@tolt.app",
+        "affiliate_email": "night@tolt.app",
+        "customer_email": "buyer47@mail.com",
+        "customer_key": "buyer47@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-26T02:11:00Z",
+        "ip": ""
+      },
+      {
+        "row": 49,
+        "affiliate": "night@tolt.app",
+        "affiliate_email": "night@tolt.app",
+        "customer_email": "buyer48@mail.com",
+        "customer_key": "buyer48@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-26T02:22:00Z",
+        "ip": ""
+      },
+      {
+        "row": 50,
+        "affiliate": "night@tolt.app",
+        "affiliate_email": "night@tolt.app",
+        "customer_email": "buyer49@mail.com",
+        "customer_key": "buyer49@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-26T02:33:00Z",
+        "ip": ""
+      },
+      {
+        "row": 51,
+        "affiliate": "night@tolt.app",
+        "affiliate_email": "night@tolt.app",
+        "customer_email": "buyer50@mail.com",
+        "customer_key": "buyer50@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-26T02:44:00Z",
+        "ip": ""
+      },
+      {
+        "row": 17,
+        "affiliate": "day@tolt.app",
+        "affiliate_email": "day@tolt.app",
+        "customer_email": "buyer16@mail.com",
+        "customer_key": "buyer16@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-26T14:00:00Z",
+        "ip": ""
+      },
+      {
+        "row": 18,
+        "affiliate": "day@tolt.app",
+        "affiliate_email": "day@tolt.app",
+        "customer_email": "buyer17@mail.com",
+        "customer_key": "buyer17@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-26T14:07:00Z",
+        "ip": ""
+      },
+      {
+        "row": 19,
+        "affiliate": "day@tolt.app",
+        "affiliate_email": "day@tolt.app",
+        "customer_email": "buyer18@mail.com",
+        "customer_key": "buyer18@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-26T14:14:00Z",
+        "ip": ""
+      },
+      {
+        "row": 20,
+        "affiliate": "day@tolt.app",
+        "affiliate_email": "day@tolt.app",
+        "customer_email": "buyer19@mail.com",
+        "customer_key": "buyer19@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-26T14:21:00Z",
+        "ip": ""
+      },
+      {
+        "row": 21,
+        "affiliate": "day@tolt.app",
+        "affiliate_email": "day@tolt.app",
+        "customer_email": "buyer20@mail.com",
+        "customer_key": "buyer20@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-26T14:28:00Z",
+        "ip": ""
+      },
+      {
+        "row": 52,
+        "affiliate": "night@tolt.app",
+        "affiliate_email": "night@tolt.app",
+        "customer_email": "buyer51@mail.com",
+        "customer_key": "buyer51@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-27T02:00:00Z",
+        "ip": ""
+      },
+      {
+        "row": 53,
+        "affiliate": "night@tolt.app",
+        "affiliate_email": "night@tolt.app",
+        "customer_email": "buyer52@mail.com",
+        "customer_key": "buyer52@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-27T02:11:00Z",
+        "ip": ""
+      },
+      {
+        "row": 54,
+        "affiliate": "night@tolt.app",
+        "affiliate_email": "night@tolt.app",
+        "customer_email": "buyer53@mail.com",
+        "customer_key": "buyer53@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-27T02:22:00Z",
+        "ip": ""
+      },
+      {
+        "row": 55,
+        "affiliate": "night@tolt.app",
+        "affiliate_email": "night@tolt.app",
+        "customer_email": "buyer54@mail.com",
+        "customer_key": "buyer54@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-27T02:33:00Z",
+        "ip": ""
+      },
+      {
+        "row": 56,
+        "affiliate": "night@tolt.app",
+        "affiliate_email": "night@tolt.app",
+        "customer_email": "buyer55@mail.com",
+        "customer_key": "buyer55@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-27T02:44:00Z",
+        "ip": ""
+      },
+      {
+        "row": 22,
+        "affiliate": "day@tolt.app",
+        "affiliate_email": "day@tolt.app",
+        "customer_email": "buyer21@mail.com",
+        "customer_key": "buyer21@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-27T14:00:00Z",
+        "ip": ""
+      },
+      {
+        "row": 23,
+        "affiliate": "day@tolt.app",
+        "affiliate_email": "day@tolt.app",
+        "customer_email": "buyer22@mail.com",
+        "customer_key": "buyer22@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-27T14:07:00Z",
+        "ip": ""
+      },
+      {
+        "row": 24,
+        "affiliate": "day@tolt.app",
+        "affiliate_email": "day@tolt.app",
+        "customer_email": "buyer23@mail.com",
+        "customer_key": "buyer23@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-27T14:14:00Z",
+        "ip": ""
+      },
+      {
+        "row": 25,
+        "affiliate": "day@tolt.app",
+        "affiliate_email": "day@tolt.app",
+        "customer_email": "buyer24@mail.com",
+        "customer_key": "buyer24@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-27T14:21:00Z",
+        "ip": ""
+      },
+      {
+        "row": 26,
+        "affiliate": "day@tolt.app",
+        "affiliate_email": "day@tolt.app",
+        "customer_email": "buyer25@mail.com",
+        "customer_key": "buyer25@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-27T14:28:00Z",
+        "ip": ""
+      },
+      {
+        "row": 27,
+        "affiliate": "day@tolt.app",
+        "affiliate_email": "day@tolt.app",
+        "customer_email": "buyer26@mail.com",
+        "customer_key": "buyer26@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-28T14:00:00Z",
+        "ip": ""
+      },
+      {
+        "row": 28,
+        "affiliate": "day@tolt.app",
+        "affiliate_email": "day@tolt.app",
+        "customer_email": "buyer27@mail.com",
+        "customer_key": "buyer27@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-28T14:07:00Z",
+        "ip": ""
+      },
+      {
+        "row": 29,
+        "affiliate": "day@tolt.app",
+        "affiliate_email": "day@tolt.app",
+        "customer_email": "buyer28@mail.com",
+        "customer_key": "buyer28@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-28T14:14:00Z",
+        "ip": ""
+      },
+      {
+        "row": 30,
+        "affiliate": "day@tolt.app",
+        "affiliate_email": "day@tolt.app",
+        "customer_email": "buyer29@mail.com",
+        "customer_key": "buyer29@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-28T14:21:00Z",
+        "ip": ""
+      },
+      {
+        "row": 31,
+        "affiliate": "day@tolt.app",
+        "affiliate_email": "day@tolt.app",
+        "customer_email": "buyer30@mail.com",
+        "customer_key": "buyer30@mail.com",
+        "coupon": "",
+        "commission_cents": 900,
+        "ts": "2026-03-28T14:28:00Z",
+        "ip": ""
+      }
+    ]
+  }
+}

@@ -1,0 +1,342 @@
+{
+  "rewardful-affiliates.csv": {
+    "tool": "rewardful",
+    "export_kind": "affiliates",
+    "parse": {
+      "rows": 4,
+      "affiliates": 4,
+      "skipped": 0,
+      "dup_emails": 0
+    },
+    "rules_run": [
+      "duplicate_account"
+    ],
+    "rules_skipped": [
+      "self_referral",
+      "click_velocity",
+      "conversion_velocity",
+      "coupon_hijack",
+      "conversion_time_anomaly",
+      "asn_reputation",
+      "ip_overlap",
+      "payment_fingerprint",
+      "bot_class_gating",
+      "geo_mismatch",
+      "ip_fallback_anomaly",
+      "inactive_affiliate",
+      "refund_rate",
+      "click_to_conversion"
+    ],
+    "go_findings": {
+      "duplicate_account": {
+        "jane@shop.io": 1,
+        "jane+promo@shop.io": 1
+      }
+    },
+    "scan_only_findings": {},
+    "summary": {
+      "commission_at_risk_cents": null,
+      "conversions_flagged": 0,
+      "affiliates_flagged": 2
+    }
+  },
+  "firstpromoter-affiliates.csv": {
+    "tool": "firstpromoter",
+    "export_kind": "affiliates",
+    "parse": {
+      "rows": 5,
+      "affiliates": 4,
+      "skipped": 1,
+      "dup_emails": 0
+    },
+    "rules_run": [
+      "duplicate_account"
+    ],
+    "rules_skipped": [
+      "self_referral",
+      "click_velocity",
+      "conversion_velocity",
+      "coupon_hijack",
+      "conversion_time_anomaly",
+      "asn_reputation",
+      "ip_overlap",
+      "payment_fingerprint",
+      "bot_class_gating",
+      "geo_mismatch",
+      "ip_fallback_anomaly",
+      "inactive_affiliate",
+      "refund_rate",
+      "click_to_conversion"
+    ],
+    "go_findings": {
+      "duplicate_account": {
+        "o.n.e.pm@gmail.com": 1,
+        "onepm+b@gmail.com": 1
+      }
+    },
+    "scan_only_findings": {},
+    "summary": {
+      "commission_at_risk_cents": null,
+      "conversions_flagged": 0,
+      "affiliates_flagged": 2
+    }
+  },
+  "tapfiliate-affiliates.csv": {
+    "tool": "tapfiliate",
+    "export_kind": "affiliates",
+    "parse": {
+      "rows": 1,
+      "affiliates": 1,
+      "skipped": 0,
+      "dup_emails": 0
+    },
+    "rules_run": [
+      "duplicate_account"
+    ],
+    "rules_skipped": [
+      "self_referral",
+      "click_velocity",
+      "conversion_velocity",
+      "coupon_hijack",
+      "conversion_time_anomaly",
+      "asn_reputation",
+      "ip_overlap",
+      "payment_fingerprint",
+      "bot_class_gating",
+      "geo_mismatch",
+      "ip_fallback_anomaly",
+      "inactive_affiliate",
+      "refund_rate",
+      "click_to_conversion"
+    ],
+    "go_findings": {},
+    "scan_only_findings": {},
+    "summary": {
+      "commission_at_risk_cents": null,
+      "conversions_flagged": 0,
+      "affiliates_flagged": 0
+    }
+  },
+  "tolt-affiliates.csv": {
+    "tool": "tolt",
+    "export_kind": "affiliates",
+    "parse": {
+      "rows": 2,
+      "affiliates": 1,
+      "skipped": 0,
+      "dup_emails": 1
+    },
+    "rules_run": [
+      "duplicate_account"
+    ],
+    "rules_skipped": [
+      "self_referral",
+      "click_velocity",
+      "conversion_velocity",
+      "coupon_hijack",
+      "conversion_time_anomaly",
+      "asn_reputation",
+      "ip_overlap",
+      "payment_fingerprint",
+      "bot_class_gating",
+      "geo_mismatch",
+      "ip_fallback_anomaly",
+      "inactive_affiliate",
+      "refund_rate",
+      "click_to_conversion"
+    ],
+    "go_findings": {},
+    "scan_only_findings": {},
+    "summary": {
+      "commission_at_risk_cents": null,
+      "conversions_flagged": 0,
+      "affiliates_flagged": 0
+    }
+  },
+  "rewardful-referrals.csv": {
+    "tool": "rewardful",
+    "export_kind": "conversions",
+    "parse": {
+      "rows": 14,
+      "conversions": 13,
+      "skipped": 1,
+      "dup_emails": 0
+    },
+    "rules_run": [
+      "self_referral",
+      "conversion_velocity",
+      "conversion_time_anomaly",
+      "duplicate_account",
+      "payment_fingerprint",
+      "refund_rate"
+    ],
+    "rules_skipped": [
+      "click_velocity",
+      "coupon_hijack",
+      "asn_reputation",
+      "ip_overlap",
+      "bot_class_gating",
+      "geo_mismatch",
+      "ip_fallback_anomaly",
+      "inactive_affiliate",
+      "click_to_conversion"
+    ],
+    "go_findings": {
+      "self_referral": {
+        "owner@gmail.com": 2
+      },
+      "payment_fingerprint": {
+        "bob@shop.io": 1,
+        "jane@shop.io": 1
+      }
+    },
+    "scan_only_findings": {
+      "refund_rate": {
+        "rick@refunds.io": 2
+      }
+    },
+    "summary": {
+      "commission_at_risk_cents": 10020,
+      "conversions_flagged": 6,
+      "affiliates_flagged": 4
+    }
+  },
+  "firstpromoter-commissions.csv": {
+    "tool": "firstpromoter",
+    "export_kind": "conversions",
+    "parse": {
+      "rows": 10,
+      "conversions": 10,
+      "skipped": 0,
+      "dup_emails": 0
+    },
+    "rules_run": [
+      "self_referral",
+      "conversion_velocity",
+      "coupon_hijack",
+      "conversion_time_anomaly",
+      "duplicate_account",
+      "payment_fingerprint",
+      "refund_rate"
+    ],
+    "rules_skipped": [
+      "click_velocity",
+      "asn_reputation",
+      "ip_overlap",
+      "bot_class_gating",
+      "geo_mismatch",
+      "ip_fallback_anomaly",
+      "inactive_affiliate",
+      "click_to_conversion"
+    ],
+    "go_findings": {
+      "coupon_hijack": {
+        "leaker@fp.dev": 2
+      },
+      "duplicate_account": {
+        "dup@gmail.com": 1,
+        "d.u.p+2@gmail.com": 1
+      },
+      "payment_fingerprint": {
+        "leaker@fp.dev": 3
+      }
+    },
+    "scan_only_findings": {},
+    "summary": {
+      "commission_at_risk_cents": 77400,
+      "conversions_flagged": 5,
+      "affiliates_flagged": 3
+    }
+  },
+  "tapfiliate-conversions.csv": {
+    "tool": "tapfiliate",
+    "export_kind": "conversions",
+    "parse": {
+      "rows": 60,
+      "conversions": 60,
+      "skipped": 0,
+      "dup_emails": 0
+    },
+    "rules_run": [
+      "click_velocity",
+      "conversion_velocity",
+      "conversion_time_anomaly",
+      "ip_overlap",
+      "duplicate_account",
+      "click_to_conversion"
+    ],
+    "rules_skipped": [
+      "self_referral",
+      "coupon_hijack",
+      "asn_reputation",
+      "payment_fingerprint",
+      "bot_class_gating",
+      "geo_mismatch",
+      "ip_fallback_anomaly",
+      "inactive_affiliate",
+      "refund_rate"
+    ],
+    "go_findings": {
+      "click_velocity": {
+        "burst@tap.io": 3
+      },
+      "conversion_velocity": {
+        "burst@tap.io": 23
+      },
+      "ip_overlap": {
+        "farm1@tap.io": 2,
+        "farm2@tap.io": 1
+      }
+    },
+    "scan_only_findings": {
+      "click_to_conversion": {
+        "burst@tap.io": 52
+      }
+    },
+    "summary": {
+      "commission_at_risk_cents": 23800,
+      "conversions_flagged": 55,
+      "affiliates_flagged": 3
+    }
+  },
+  "tolt-referrals.csv": {
+    "tool": "tolt",
+    "export_kind": "conversions",
+    "parse": {
+      "rows": 55,
+      "conversions": 55,
+      "skipped": 0,
+      "dup_emails": 0
+    },
+    "rules_run": [
+      "self_referral",
+      "conversion_velocity",
+      "conversion_time_anomaly",
+      "duplicate_account",
+      "payment_fingerprint",
+      "refund_rate"
+    ],
+    "rules_skipped": [
+      "click_velocity",
+      "coupon_hijack",
+      "asn_reputation",
+      "ip_overlap",
+      "bot_class_gating",
+      "geo_mismatch",
+      "ip_fallback_anomaly",
+      "inactive_affiliate",
+      "click_to_conversion"
+    ],
+    "go_findings": {
+      "conversion_time_anomaly": {
+        "night@tolt.app": 6
+      }
+    },
+    "scan_only_findings": {},
+    "summary": {
+      "commission_at_risk_cents": 5400,
+      "conversions_flagged": 6,
+      "affiliates_flagged": 1
+    }
+  }
+}

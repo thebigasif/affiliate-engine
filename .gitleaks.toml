@@ -1,0 +1,24 @@
+# Gitleaks configuration — extends the default ruleset with a reviewed
+# allowlist. Every entry must carry its justification.
+
+title = "affiliate-engine gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Reviewed false positives — test fixtures only"
+# Svix's published webhook-verification example secret, used verbatim
+# as a test vector in internal/mail/resend_test.go (TestVerifySvix).
+# Public documentation value, not a credential.
+regexes = ['''whsec_plJ3nmyCDGBKInavdOK15jsl''']
+paths = [
+    # The Stripe test-suite signing secret (whsec_test_ + sequential hex):
+    # an obviously-fake fixture constant committed in the original adapter
+    # tests (580182e). Not a credential; exercises signature round-trips.
+    '''internal/billing/stripe_test\.go''',
+    # Postback HMAC fixture (pbsec_test_ + hex, ce6ab0c): fake test secret
+    # driving the X-AE-Signature round-trip in TestPostback_SignedDelivery.
+    # Same class as the Stripe fixture above; not a credential.
+    '''internal/postbacks/emitter_test\.go''',
+]

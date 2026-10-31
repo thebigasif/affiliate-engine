@@ -1,0 +1,11 @@
+Promoter Email,Promoter,Customer Email,Customer ID,Coupon Code,Sale Amount,Commission Amount,Status,Created At
+ann@fp.dev,Ann,c1@corp.io,cust_1,,$120.00,$36.00,approved,2026-03-09T15:00:00Z
+ann@fp.dev,Ann,c2@corp.io,cust_2,,$120.00,$36.00,approved,2026-03-09T16:00:00Z
+ann@fp.dev,Ann,c3@corp.io,cust_3,,$120.00,$36.00,approved,2026-03-09T17:00:00Z
+ann@fp.dev,Ann,c4@corp.io,cust_4,,$120.00,$36.00,refunded,2026-03-09T18:00:00Z
+leaker@fp.dev,Leaker,c1@corp.io,cust_1,LEAK50,$60.00,$18.00,approved,2026-03-10T15:00:00Z
+leaker@fp.dev,Leaker,c2@corp.io,cust_2,LEAK50,$60.00,$18.00,approved,2026-03-11T15:00:00Z
+leaker@fp.dev,Leaker,c3@corp.io,cust_3,LEAK50,$60.00,$18.00,approved,2026-03-12T15:00:00Z
+leaker@fp.dev,Leaker,c4@corp.io,cust_4,LEAK50,$60.00,$18.00,approved,2026-03-13T15:00:00Z
+dup@gmail.com,Dup,d1@corp.io,cust_d1,,"$1,200.00",$360.00,approved,2026-03-15T15:00:00Z
+d.u.p+2@gmail.com,Dup Two,d2@corp.io,cust_d2,,"$1,200.00",$360.00,approved,2026-03-15T16:00:00Z

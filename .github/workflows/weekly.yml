@@ -1,0 +1,61 @@
+name: weekly
+
+on:
+  schedule:
+    - cron: "0 3 * * 0" # Sundays 03:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weekly
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash  # -eo pipefail
+
+jobs:
+  flake-hunt:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    services:
+      postgres:
+        image: postgres:18.6@sha256:74935e72241653ca55e0414067e6d8763aceb8a810eb51b452253ec3dcfc4336
+        env:
+          POSTGRES_PASSWORD: ci-only-throwaway
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s
+          --health-timeout 5s --health-retries 20
+    env:
+      GOFLAGS: -buildvcs=false
+      PG_ADMIN: postgres://postgres:ci-only-throwaway@localhost:5432/postgres?sslmode=disable
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: SQLite x3 (flake detection)
+        run: go test ./... -count=3
+      - name: Race (full suite)
+        run: go test ./... -race -count=1
+      - name: Full PG suite
+        env:
+          AE_TEST_ENGINES: postgres
+          AE_TEST_PG_ADMIN_DSN: ${{ env.PG_ADMIN }}
+        run: go test ./... -count=1 -p 1
+      - name: PG race (money paths + attack suite)
+        env:
+          AE_TEST_ENGINES: postgres
+          AE_TEST_PG_ADMIN_DSN: ${{ env.PG_ADMIN }}
+        run: |
+          go test ./internal/ledger/... ./internal/commissions/... -race -count=1
+          go test ./test/attack/... -race -count=1
+      - name: Dependency drift check
+        run: |
+          go mod tidy -diff && echo "go.mod/go.sum clean" || echo "::warning::go.mod is not tidy — run go mod tidy"

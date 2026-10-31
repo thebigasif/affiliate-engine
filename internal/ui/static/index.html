@@ -1,0 +1,903 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AffiliateTracking</title>
+<script src="/static/boot.js"></script>
+<style>
+/* Same design language as affiliatetracking.co: warm paper, ink, pastel
+   tiles, rounded cards. --accent is the program's brand colour (boot.js
+   sets it from white-label branding); it drives buttons and focus rings.
+   Headings use gentler letter-spacing than the site: the CSP allows no web
+   fonts, and tight tracking makes system fonts collide. */
+:root{
+  --paper:#FBFAF6;--panel:#FFFFFF;--ink:#111111;--fg:#111111;--dim:#5C5C66;--faint:#6F6F78;
+  --line:#E5E3DC;--line-2:#D9D6CD;--soft:#F4F2EC;--grid:rgba(17,17,17,.045);
+  --accent:#111111;
+  --lime:#E4F46C;--lime-2:#F2F9C4;--sky:#E3EEFF;--lav:#EEE9FF;--peach:#FFE4DE;--cream:#FFF2D2;--teal:#DDF3EC;--pink:#FDF0F5;
+  --green:#1F7A43;--green-bg:#E5F6EC;--red:#B83A22;--red-bg:#FDE5DF;--amber:#8A5A00;--amber-bg:#FFF2D2;--blue:#2358C4;--blue-bg:#E3EEFF;
+  --head:"Inter Tight","Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --sans:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --side:252px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{background-color:var(--paper);background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:36px 36px;color:var(--fg);font:15px/1.55 var(--sans);-webkit-font-smoothing:antialiased;min-height:100vh}
+a{color:var(--ink);text-decoration:underline;text-underline-offset:2px}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+[hidden]{display:none!important}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+/* ---------- sidebar ---------- */
+.side{position:fixed;inset:0 auto 0 0;width:var(--side);background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;z-index:40}
+.brand{display:flex;align-items:center;gap:10px;padding:20px 20px 18px;min-width:0}
+.brand .mark{flex:0 0 30px}
+img.logo-img{object-fit:contain;border-radius:8px;flex:0 0 auto}
+.logo-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:4px 0 18px}
+.logo-prev{width:56px;height:56px;border:1px solid var(--line);border-radius:12px;display:grid;place-items:center;background:var(--soft);overflow:hidden;flex:0 0 56px}
+.logo-prev img,.logo-prev svg{width:40px;height:40px;object-fit:contain}
+.logo-row .logo-text{display:grid;gap:4px;font-size:13px;font-weight:600;color:var(--dim)}
+.logo-row .logo-text small{font-weight:400;color:var(--faint);font-size:12px}
+.brand-name{font:600 16px/1.2 var(--head);letter-spacing:-.005em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.side .brand-name{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
+input[type=file]{font-size:13.5px;color:var(--dim);max-width:100%}
+input[type=file]::file-selector-button{height:38px;padding:0 16px;margin-right:12px;border-radius:8px;border:1px solid var(--ink);background:var(--panel);color:var(--ink);font:inherit;font-weight:600;cursor:pointer}
+input[type=file]::file-selector-button:hover{background:var(--soft)}
+.brand-sub{display:block;font:500 12px/1.2 var(--sans);color:var(--faint);margin-top:2px}
+.nav{flex:1;overflow-y:auto;padding:4px 12px 12px}
+.nav-group{margin-bottom:14px}
+.nav-label{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);padding:10px 10px 6px}
+.nav a{display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:10px;text-decoration:none;color:var(--dim);font-size:14.5px;font-weight:500;margin-bottom:2px}
+.nav a svg{flex:0 0 18px;width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.nav a:hover{background:var(--soft);color:var(--ink)}
+.nav a[aria-current="page"]{background:var(--lime-2);color:var(--ink);font-weight:600;box-shadow:inset 0 0 0 1px rgba(17,17,17,.06)}
+.nav .count{margin-left:auto;min-width:22px;height:22px;padding:0 7px;border-radius:999px;background:var(--red);color:#fff;font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+.nav .count:empty{display:none}
+.side-foot{border-top:1px solid var(--line);padding:14px 16px 16px;display:grid;gap:10px}
+.books{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--dim)}
+.books i{width:8px;height:8px;border-radius:50%;background:var(--faint);flex:0 0 8px}
+.books.ok i{background:var(--green)}
+.books.bad{color:var(--red)} .books.bad i{background:var(--red)}
+.who{display:flex}
+.who #who{display:none}
+#signout{width:100%;height:34px;padding:0 12px;white-space:nowrap;border-radius:8px;border:1px solid var(--line-2);background:var(--panel);font-weight:600;font-size:13px;cursor:pointer}
+#signout:hover{border-color:var(--ink)}
+#keywrap{display:none}
+.scrim{display:none}
+
+/* mobile top bar */
+.topbar{display:none}
+
+/* ---------- main column ---------- */
+.main-col{margin-left:var(--side);min-width:0}
+main{max-width:1120px;margin:0 auto;padding:36px 36px 48px}
+body.signed-out .side,body.apply-mode .side,body.signed-out .topbar,body.apply-mode .topbar{display:none!important}
+body.signed-out .main-col,body.apply-mode .main-col{margin-left:0}
+.page{display:none}
+.page.active{display:block}
+body.signed-out .page{display:none!important}
+.role-admin .nav-portal,.role-partner .nav-admin{display:none}
+.role-admin.demo .nav-portal{display:block}
+
+.page-h{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:24px}
+.page-h h1{font:600 32px/1.1 var(--head);letter-spacing:-.015em;color:var(--ink)}
+.page-h p{color:var(--dim);margin-top:8px;max-width:640px}
+.page-h .actions{margin:0}
+
+/* panels */
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px 24px;margin-bottom:20px;box-shadow:0 1px 0 rgba(17,17,17,.03)}
+.panel-h{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.panel-h h2{font:600 18px/1.25 var(--head);letter-spacing:-.005em;color:var(--ink)}
+.panel-h p{color:var(--dim);font-size:14px;max-width:720px;margin-top:4px}
+.panel.hl{border:1.5px solid var(--ink);box-shadow:5px 5px 0 var(--ink)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.two>.panel{margin-bottom:0}
+.two>*,.panel,.tbl{min-width:0}
+h3{font:600 15px/1.3 var(--head);margin:20px 0 8px}
+.field-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px 16px;margin:4px 0 16px}
+.field{display:grid;gap:6px;align-content:start;font-size:13px;font-weight:600;color:var(--dim)}
+.field small{font-weight:400;color:var(--faint);font-size:12px}
+.field input,.field select{width:100%}
+.field textarea{width:100%;border:1px solid var(--line-2);border-radius:8px;padding:10px 12px;background:var(--panel);font-weight:400;color:var(--ink);resize:vertical}
+#payto>.field{margin:0 0 16px}
+.rs-list{list-style:none;margin:0 0 8px;padding:0;display:grid;gap:10px}
+.rs-list li{display:flex;gap:14px;align-items:flex-start;background:var(--soft);border-radius:12px;padding:12px 14px}
+.rs-list li>div{flex:1;min-width:0;display:grid;gap:6px}
+.rs-list img{max-width:160px;max-height:90px;border-radius:6px;background:#fff;border:1px solid var(--line)}
+.rs-list .rs-body{white-space:pre-wrap;font-size:14px;color:var(--ink);overflow-wrap:anywhere}
+.rs-list .mini{margin:0}
+.rs-list .sub,.snip .sub{color:var(--dim)}
+.rs-grid{display:grid;gap:16px}
+.rs-card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;display:grid;gap:10px}
+.rs-card h2{font:600 16px/1.3 var(--head)}
+.rs-card img{max-width:100%;max-height:260px;justify-self:start;border-radius:8px;border:1px solid var(--line)}
+.rs-card .rs-body{white-space:pre-wrap;background:var(--soft);border-radius:10px;padding:12px 14px;font-size:14px;overflow-wrap:anywhere}
+.rs-card .row{gap:8px}
+.tiers{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.tiers li{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--soft);border-radius:10px;padding:8px 8px 8px 14px;font-size:14px}
+.tiers li .mini{margin:0}
+#nt-panel .nt-h{font-size:14px;margin:20px 0 8px}
+#nt-panel .nt-h:first-of-type{margin-top:0}
+#nt-panel .nt-sub{margin:2px 0 14px 21px}
+
+/* needs-attention list */
+.todo{list-style:none;display:grid;gap:8px}
+.todo li{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:#FDFCF9}
+.todo li i{width:10px;height:10px;border-radius:50%;flex:0 0 10px;background:var(--amber)}
+.todo li.red i{background:var(--red)}
+.todo li span{flex:1;font-size:14.5px}
+.todo li a{font-size:13.5px;font-weight:600;text-decoration:none;white-space:nowrap;border:1px solid var(--line-2);border-radius:8px;padding:6px 12px;background:var(--panel)}
+.todo li a:hover{border-color:var(--ink)}
+.allclear{display:flex;align-items:center;gap:10px;color:var(--green);font-weight:600;font-size:14.5px;padding:6px 2px}
+
+/* stat tiles */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}
+.card{border-radius:14px;padding:16px 18px;border:1px solid rgba(17,17,17,.06);background:var(--lime-2)}
+.cards .card:nth-child(7n+2){background:var(--lav)}
+.cards .card:nth-child(7n+3){background:var(--peach)}
+.cards .card:nth-child(7n+4){background:var(--sky)}
+.cards .card:nth-child(7n+5){background:var(--cream)}
+.cards .card:nth-child(7n+6){background:var(--teal)}
+.cards .card:nth-child(7n+7){background:var(--pink)}
+.seg{display:inline-flex;border:1px solid var(--line-2);border-radius:10px;padding:3px;gap:2px;background:var(--soft);flex-wrap:wrap}
+.seg button{border:0;background:transparent;border-radius:7px;padding:7px 12px;font-size:13px;font-weight:600;color:var(--dim);cursor:pointer;white-space:nowrap}
+.seg button b{font-weight:700;color:var(--ink);margin-left:4px;font-variant-numeric:tabular-nums}
+.seg button[aria-selected="true"]{background:var(--panel);color:var(--ink);box-shadow:0 1px 2px rgba(17,17,17,.12)}
+.chart{display:flex;align-items:flex-end;gap:3px;height:150px;padding:8px 0 0;border-bottom:1px solid var(--line);position:relative}
+.chart .bar{flex:1 1 0;min-width:0;height:100%;display:flex;align-items:flex-end;cursor:default;border-radius:4px 4px 0 0;outline-offset:1px}
+.chart .bar i{display:block;width:100%;background:var(--ink);border-radius:4px 4px 0 0;min-height:2px;opacity:.85}
+.chart .bar.zero i{background:var(--line-2);opacity:1}
+.chart .bar:hover i,.chart .bar:focus i,.chart .bar.on i{background:var(--accent);opacity:1}
+.chart .max{position:absolute;top:0;right:0;font-size:11.5px;color:var(--faint);background:var(--panel);padding:0 0 0 6px}
+.chart-x{display:flex;justify-content:space-between;font-size:11.5px;color:var(--faint);margin-top:6px}
+@media (max-width:640px){.seg{display:grid;grid-template-columns:repeat(3,1fr);width:100%}.seg button{display:grid;gap:2px;padding:6px 4px;font-size:12px;text-align:center}.seg button b{margin:0;font-size:14px}}
+.chart-empty{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:var(--dim);font-size:14px;padding:0 20px}
+.card .label{font-size:12.5px;font-weight:600;color:rgba(17,17,17,.62)}
+.card .value{font:600 26px/1.15 var(--head);letter-spacing:-.01em;margin-top:6px;font-variant-numeric:tabular-nums;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#a-cards{grid-template-columns:repeat(3,1fr)}
+#p-cards{grid-template-columns:repeat(4,1fr)}
+td.none{color:var(--dim);background:var(--soft);text-align:center;padding:18px}
+.card .value.ok{color:var(--green)}
+.card .value.bad{color:var(--red)}
+
+/* tables */
+.tbl{overflow:auto;-webkit-overflow-scrolling:touch;border-radius:12px;max-height:560px;border:1px solid var(--line)}
+.tbl:has(>table[style*="none"]){border:0}
+table{width:100%;border-collapse:separate;border-spacing:0;background:var(--panel)}
+.tbl>table{min-width:560px}
+.tbl th{position:sticky;top:0;z-index:1}
+th{font-size:12px;font-weight:600;color:var(--dim);text-align:left;padding:10px 14px;background:#FAFAF7;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:11px 14px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:top}
+tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:#FCFBF8}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+td:empty::before{content:"\2014";color:var(--faint)}
+td.nowrap{white-space:nowrap}
+td.muted{overflow-wrap:anywhere}
+a.rule-help{color:var(--dim);font-size:12px;text-decoration:underline;text-underline-offset:2px}
+a.rule-help:hover{color:var(--ink)}
+/* Phones: each row becomes a card with labelled values, so every button
+   stays on screen instead of behind a sideways scroll. */
+@media (max-width:640px){
+  .tbl{max-height:none;overflow:visible;border:0;border-radius:0}
+  .tbl>table{min-width:0;background:transparent}
+  .tbl thead{display:none}
+  .tbl table,.tbl tbody,.tbl tr,.tbl td{display:block}
+  .tbl tr{border:1px solid var(--line);border-radius:12px;margin-bottom:10px;padding:6px 0;background:var(--panel)}
+  .tbl td,.tbl tr:last-child td{border:0;padding:6px 14px;text-align:right;overflow-wrap:anywhere}
+  .tbl td::after{content:"";display:table;clear:both}
+  .tbl td[data-label]::before{content:attr(data-label);float:left;margin-right:14px;color:var(--dim);font-size:12.5px;font-weight:600;text-align:left}
+  .tbl tr td:first-child{text-align:left;font-weight:600}
+  .tbl td:first-child::before{content:none}
+  .tbl td:empty{display:none}
+  .tbl tr td:not([data-label]):not(:first-child){text-align:left}
+  .tbl tr td.none{text-align:center}
+  .tbl tbody tr:hover td{background:transparent}
+}
+
+/* badges, text */
+.badge{display:inline-block;padding:3px 9px;border-radius:999px;font-size:12px;font-weight:600;background:var(--soft);color:var(--dim);white-space:nowrap}
+.badge.pending,.badge.frozen,.badge.received{background:var(--amber-bg);color:var(--amber)}
+.badge.approved,.badge.active,.badge.validated{background:var(--green-bg);color:var(--green)}
+.badge.paid{background:var(--blue-bg);color:var(--blue)}
+.badge.cancelled,.badge.clawback,.badge.hold,.badge.rejected{background:var(--red-bg);color:var(--red)}
+.badges-row{display:flex;gap:6px;flex-wrap:wrap;margin:-6px 0 4px}
+.muted{color:var(--dim)}
+.mono{font-family:var(--mono);font-size:12.5px}
+.empty{color:var(--dim);font-size:14px;background:var(--soft);border-radius:10px;padding:16px 18px}
+.note{color:var(--dim);font-size:13px;margin:8px 0 0}
+.saved{color:var(--green);font-weight:600;font-size:14px}
+.fail{color:var(--red);font-weight:600;font-size:14px}
+.unsaved{color:var(--amber);font-weight:600;font-size:14px}
+
+/* forms and buttons */
+.actions,.row{display:flex;gap:10px;margin:14px 0;flex-wrap:wrap;align-items:center}
+.row{margin:0}
+input[type=text],input[type=number],input[type=password],input[type=email],input[type=search],select{background:var(--panel);border:1px solid var(--line-2);height:40px;padding:0 12px;border-radius:8px;font-size:14px;max-width:100%}
+input[type=file]{font-size:13px;max-width:100%}
+input::placeholder{color:var(--faint)}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(17,17,17,.08)}
+label.check{display:flex;gap:8px;align-items:center;color:var(--dim);font-size:14px;font-weight:500}
+button.primary,button.ghost{height:40px;padding:0 18px;border-radius:8px;font-weight:600;font-size:14px;cursor:pointer;transition:transform .15s,background .15s;white-space:nowrap}
+button.primary{background:var(--accent);color:#fff;border:1px solid var(--accent)}
+button.primary:hover{transform:translateY(-1px)}
+button.primary:disabled,button.ghost:disabled{opacity:.4;cursor:default;transform:none}
+button.ghost{background:var(--panel);border:1px solid var(--ink);color:var(--ink)}
+button.ghost:hover{background:var(--soft)}
+button.mini,a.mini{display:inline-flex;align-items:center;text-decoration:none;color:var(--ink);height:30px;padding:0 11px;border-radius:7px;border:1px solid var(--line-2);background:var(--panel);font-size:12.5px;font-weight:600;cursor:pointer;margin:0 4px 4px 0}
+button.mini:hover,a.mini:hover{border-color:var(--ink)}
+button.mini.go,a.mini.go{background:var(--ink);border-color:var(--ink);color:#fff}
+.linkgen .out{margin-top:12px;font-family:var(--mono);font-size:13px;word-break:break-all;background:var(--soft);border:1px dashed var(--line-2);border-radius:10px;padding:12px 14px;cursor:pointer}
+.linkgen .out::after{content:"  Click to copy";font-family:var(--sans);font-size:12px;color:var(--dim)}
+.search{position:relative}
+.search input{padding-left:34px;width:260px}
+.search svg{position:absolute;left:11px;top:12px;width:16px;height:16px;stroke:var(--faint);fill:none;stroke-width:2}
+
+/* notices */
+#msg{position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:60;padding:11px 16px;border-radius:10px;font-size:14px;font-weight:500;display:none;max-width:min(640px,calc(100vw - 32px));box-shadow:0 8px 24px rgba(17,17,17,.12)}
+#msg.err{display:block;background:var(--red-bg);color:var(--red);border:1px solid #F4C3B7}
+#msg.ok{display:block;background:var(--green-bg);color:var(--green);border:1px solid #BFE3CC}
+.proof{font-size:14px;background:var(--green-bg);border-radius:12px;padding:12px 16px;margin-bottom:20px;color:#245C3B}
+.proof.bad{background:var(--red-bg);color:var(--red)}
+.proof b{color:inherit}
+.grantbox{background:var(--lime-2);border:1px solid rgba(17,17,17,.08);border-radius:12px;padding:14px 16px;margin:0 0 14px}
+.grantbox code{display:block;font:12.5px var(--mono);word-break:break-all;background:var(--panel);border-radius:8px;padding:10px 12px;margin:8px 0}
+
+/* getting started */
+.steps{list-style:none;display:grid;gap:10px;counter-reset:st}
+.steps li{display:grid;grid-template-columns:30px 1fr auto;gap:12px;align-items:start;padding:14px;border:1px solid var(--line);border-radius:12px;background:#FDFCF9}
+.steps li>b{width:26px;height:26px;border-radius:50%;background:var(--soft);display:flex;align-items:center;justify-content:center;font-size:13px}
+.steps li.done>b{background:var(--green);color:#fff}
+.steps li.done h3{color:var(--dim);text-decoration:line-through;text-decoration-color:rgba(17,17,17,.3)}
+.steps h3{margin:2px 0 2px;font-size:15px}
+.steps p{color:var(--dim);font-size:14px}
+.steps .snip{margin-top:8px}
+.progress{font-size:13px;font-weight:600;color:var(--dim)}
+/* copy field */
+.snip{display:flex;gap:8px;align-items:center;background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:8px 8px 8px 12px;min-width:0}
+.snip code{flex:1;min-width:0;font:12.5px var(--mono);overflow-x:auto;white-space:nowrap}
+.snip.big code{font-size:14px;white-space:normal;word-break:break-all}
+.status{display:flex;align-items:flex-start;gap:8px;font-size:14px;padding:6px 0}
+.status i{margin-top:6px;flex:0 0 9px}
+.status i{width:9px;height:9px;border-radius:50%;background:var(--faint)}
+.status.on i{background:var(--green)}
+.status.off i{background:var(--amber)}
+.status.bad{color:var(--red)} .status.bad i{background:var(--red)}
+.status span .sub{color:var(--faint)}
+tr.click{cursor:pointer}
+tr.click:hover td{background:var(--lime-2)!important}
+.sub{display:block;font-size:12.5px;color:var(--faint)}
+.total td{font-weight:700;background:#FAFAF7}
+/* partner panel */
+dialog.drawer{margin:0 0 0 auto;height:100vh;max-height:100vh;width:min(440px,100vw);border:0;padding:0;box-shadow:-24px 0 60px rgba(17,17,17,.2)}
+dialog.drawer::backdrop{background:rgba(17,17,17,.3)}
+.drawer .in{padding:24px;display:grid;gap:18px;grid-template-columns:minmax(0,1fr)}
+.drawer .in>*{min-width:0}
+dialog.drawer{overflow-x:hidden}
+.drawer .top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.drawer h2{font:600 20px/1.25 var(--head);overflow-wrap:anywhere}
+.drawer .x{width:36px;height:36px;border-radius:9px;border:1px solid var(--line-2);background:var(--panel);cursor:pointer;font-size:18px;flex:0 0 36px}
+.drawer h3{margin:0 0 8px;font-size:13px;color:var(--dim);text-transform:uppercase;letter-spacing:.05em}
+.mini-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.mini-cards div{background:var(--soft);border-radius:10px;padding:10px 12px}
+.mini-cards span{display:block;font-size:12px;color:var(--dim);font-weight:600}
+.mini-cards div{min-width:0}
+.mini-cards b{font:600 16px var(--head);white-space:nowrap}
+#add-dlg form{padding:24px;display:grid;gap:12px}
+#add-dlg label{display:grid;gap:6px;font-size:13px;font-weight:600;color:var(--dim)}
+#add-dlg input,#add-dlg textarea{font-weight:400;color:var(--ink);width:100%;border:1px solid var(--line-2);border-radius:8px;padding:10px 12px;background:var(--panel)}
+#news-dlg form{padding:24px;display:grid;gap:12px}
+#sc-dlg{margin:auto;border:0;border-radius:16px;padding:0;width:min(640px,calc(100vw - 32px));box-shadow:0 24px 60px rgba(17,17,17,.25)}
+#sc-dlg::backdrop{background:rgba(17,17,17,.35)}
+#sc-dlg .sc-in{padding:24px;display:grid;gap:10px}
+#sc-dlg .top{display:flex;justify-content:space-between;align-items:center;gap:12px}
+#sc-dlg .top h2{font:600 19px/1.3 var(--head)}
+#sc-dlg .x{width:36px;height:36px;border-radius:9px;border:1px solid var(--line-2);background:var(--panel);cursor:pointer;font-size:18px}
+.sc-steps{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:18px}
+.sc-steps li{display:flex;gap:12px}
+.sc-steps li>b{flex:0 0 26px;width:26px;height:26px;border-radius:50%;background:var(--soft);display:flex;align-items:center;justify-content:center;font-size:13px}
+.sc-steps li.ok>b{background:var(--green-bg);color:var(--green)}
+.sc-steps li>div{flex:1;min-width:0;display:grid;gap:8px}
+.sc-steps h3{margin:2px 0 0;font-size:15px}
+.sc-steps p{color:var(--dim);font-size:14px;margin:0}
+.sc-out{font-weight:600}
+.sc-out.ok{color:var(--green)}
+.sc-out.bad{color:var(--red)}
+.sc-done{background:var(--green-bg);border-radius:12px;padding:14px 16px;display:grid;gap:10px;font-size:14px}
+#news-dlg label{display:grid;gap:6px;font-size:13px;font-weight:600;color:var(--dim)}
+#news-dlg input,#news-dlg textarea{font-weight:400;color:var(--ink);width:100%;border:1px solid var(--line-2);border-radius:8px;padding:10px 12px;background:var(--panel)}
+#news-dlg{margin:auto;border:0;border-radius:16px;padding:0;width:min(560px,calc(100vw - 32px));box-shadow:0 24px 60px rgba(17,17,17,.25)}
+#news-dlg::backdrop{background:rgba(17,17,17,.35)}
+#add-dlg{margin:auto;border:0;border-radius:16px;padding:0;width:min(460px,calc(100vw - 32px));box-shadow:0 24px 60px rgba(17,17,17,.25)}
+#add-dlg::backdrop{background:rgba(17,17,17,.35)}
+
+/* dialog */
+dialog#dlg{margin:auto;border:0;border-radius:16px;padding:0;width:min(460px,calc(100vw - 32px));box-shadow:0 24px 60px rgba(17,17,17,.25);color:var(--fg)}
+dialog#dlg::backdrop{background:rgba(17,17,17,.35)}
+#dlg form{padding:24px}
+#dlg h2{font:600 19px/1.3 var(--head);margin-bottom:8px}
+#dlg p{color:var(--dim);font-size:14.5px}
+#dlg textarea{width:100%;margin-top:14px;min-height:80px;border:1px solid var(--line-2);border-radius:8px;padding:10px 12px;resize:vertical}
+#dlg .btns{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
+#dlg button.danger{background:var(--red);border-color:var(--red)}
+
+/* sign in */
+.center{max-width:520px;margin:64px auto}
+#signin{display:none}
+body.signed-out #signin{display:block}
+#signin .panel,#apply .panel{padding:32px}
+#signin .lockup{display:flex;align-items:center;gap:10px;margin-bottom:22px;font:600 17px var(--head)}
+#signin h1,#apply h1,#apply h2{font:600 30px/1.1 var(--head);letter-spacing:-.015em;margin-bottom:8px}
+#signin p{color:var(--dim);margin-bottom:18px}
+#signin form{display:flex;gap:10px;flex-wrap:wrap}
+#signin input{flex:1 1 260px;font-family:var(--mono);font-size:13px}
+#signin .linkmail{margin-top:26px;padding-top:22px;border-top:1px solid var(--line)}
+#signin .linkmail .lm-h{font-size:16px;margin:0 0 4px}
+#signin .linkmail p{margin-bottom:12px;font-size:14px}
+#signin #linkmail-email{font-family:inherit;font-size:14px}
+
+/* partner sign-up page (/apply) */
+#apply{display:none}
+body.apply-mode #apply{display:block}
+body.apply-mode #signin,body.apply-mode .page{display:none!important}
+#apply p.lead{color:var(--dim);margin-bottom:20px}
+#apply .lockup,#signin .lockup{display:flex;align-items:center;gap:10px;margin-bottom:22px;font:600 17px var(--head)}
+.terms{list-style:none;display:grid;gap:8px;margin:-4px 0 22px;padding:14px 16px;background:var(--lime-2);border-radius:12px;font-size:14.5px}
+.terms li{display:flex;gap:10px;align-items:baseline}
+.terms li::before{content:"✓";font-weight:700;color:var(--green)}
+#apply form{display:grid;gap:14px}
+#apply label{display:grid;gap:6px;font-weight:600;font-size:14px}
+#apply input,#apply textarea{width:100%;background:var(--panel);border:1px solid var(--line-2);border-radius:8px;padding:10px 12px;font:inherit;font-weight:400}
+#apply textarea{min-height:96px;resize:vertical}
+#apply .fine{color:var(--dim);font-size:13px}
+.linkmail .alt{margin-top:14px;font-size:13.5px;color:var(--dim)}
+.linkmail .alt a,#apply .fine a{color:var(--ink);font-weight:600}
+#apply-done{display:none}
+
+/* Level-up: the single hero moment */
+@keyframes levelring{0%{box-shadow:0 0 0 0 rgba(228,244,108,.9)}100%{box-shadow:0 0 0 14px rgba(228,244,108,0)}}
+.levelup{animation:levelring .9s ease-out 2;border-radius:14px}
+#toast{position:fixed;bottom:24px;right:24px;background:var(--ink);color:#fff;padding:12px 18px;border-radius:10px;font-size:14px;box-shadow:0 8px 24px rgba(17,17,17,.2);opacity:0;transform:translateY(8px);transition:all .25s ease;pointer-events:none;z-index:50}
+#toast.show{opacity:1;transform:translateY(0)}
+#toast .lvl{color:var(--lime);font-weight:600}
+
+/* Live demo (AE_DEMO=1) banner */
+#demo-banner{background:var(--lime);color:var(--ink);font-size:14px;font-weight:500;padding:9px 20px;text-align:center}
+#demo-banner a{font-weight:700;margin-left:8px}
+
+@media (max-width:900px){
+  .side{transform:translateX(-100%);transition:transform .2s ease;box-shadow:none}
+  body.nav-open .side{transform:none;box-shadow:12px 0 40px rgba(17,17,17,.18)}
+  body.nav-open .scrim{display:block;position:fixed;inset:0;background:rgba(17,17,17,.3);z-index:35}
+  .topbar{display:flex;position:sticky;top:0;z-index:30;align-items:center;gap:12px;height:56px;padding:0 12px;background:rgba(251,250,246,.94);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+  .topbar button{width:40px;height:40px;border-radius:10px;border:1px solid var(--line-2);background:var(--panel);display:flex;align-items:center;justify-content:center;cursor:pointer}
+  .topbar svg{width:20px;height:20px;stroke:var(--ink);fill:none;stroke-width:2;stroke-linecap:round}
+  .topbar .brand-name{font-size:15px}
+  .main-col{margin-left:0}
+  main{padding:22px 16px 36px}
+  .page-h h1{font-size:26px}
+  .panel{padding:18px 16px}
+  .two{grid-template-columns:1fr}
+  .search input{width:100%}
+  #a-cards,#p-cards,.cards{grid-template-columns:repeat(2,1fr)}
+  .card .value{font-size:22px}
+  .center{margin:28px auto}
+}
+</style>
+</head>
+<body class="signed-out">
+<!-- sidebar -->
+<aside class="side" id="side" aria-label="Dashboard">
+  <div class="brand">
+    <svg class="mark" width="30" height="30" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="18" fill="#111"/><path d="M32 10.5c5.8 3.6 11.7 5.3 17.8 5.3.6 1.9.7 3.9.7 5.9 0 15.3-7 26.8-18.5 32.2C20.5 48.5 13.5 37 13.5 21.7c0-2 .1-4 .7-5.9 6.1 0 12-1.7 17.8-5.3z" fill="#E4F46C"/><rect x="25.4" y="21.5" width="5" height="16.5" rx="2.5" fill="#111"/><rect x="33.6" y="21.5" width="5" height="16.5" rx="2.5" fill="#111"/></svg><img class="mark logo-img" width="30" height="30" alt="" hidden>
+    <div style="min-width:0"><div class="brand-name">AffiliateTracking</div><span class="brand-sub" id="role-label">Admin</span></div>
+  </div>
+  <nav class="nav">
+    <div class="nav-admin">
+      <div class="nav-group">
+        <div class="nav-label">Program</div>
+        <a href="#/overview" data-page="overview"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Overview</a>
+        <a href="#/partners" data-page="partners"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.3-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.8c2 .7 3.2 2.4 3.5 5.2"/></svg>Partners</a>
+        <a href="#/applications" data-page="applications"><svg viewBox="0 0 24 24"><path d="M3 13h5l1.5 3h5L16 13h5"/><path d="M5.5 5h13L21 13v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-6z"/></svg>Applications<span class="count" id="n-apps"></span></a>
+        <a href="#/fraud" data-page="fraud"><svg viewBox="0 0 24 24"><path d="M12 3c2.7 1.7 5.4 2.5 8.3 2.5.3.9.3 1.8.3 2.8 0 7.1-3.3 12.5-8.6 15C6.7 20.8 3.4 15.4 3.4 8.3c0-1 0-1.9.3-2.8C6.6 5.5 9.3 4.7 12 3z"/><path d="M9 12l2 2 4-4"/></svg>Fraud<span class="count" id="n-fraud"></span></a>
+        <a href="#/payouts" data-page="payouts"><svg viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="13" rx="2"/><path d="M2.5 10h19M6.5 15h4"/></svg>Payouts<span class="count" id="n-payouts"></span></a>
+        <a href="#/taxforms" data-page="taxforms"><svg viewBox="0 0 24 24"><path d="M14 3H6.5A1.5 1.5 0 0 0 5 4.5v15A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V8z"/><path d="M14 3v5h5M8.5 13h7M8.5 17h5"/></svg>Tax forms<span class="count" id="n-tax"></span></a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-label">Setup</div>
+        <a href="#/settings" data-page="settings"><svg viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>Settings<span class="count" id="n-settings"></span></a>
+        <a href="#/import" data-page="import"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v2.5A1.5 1.5 0 0 0 5.5 21h13a1.5 1.5 0 0 0 1.5-1.5V17"/></svg>Import</a>
+        <a href="#/advanced" data-page="advanced"><svg viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M13.5 4.5l-3 15"/></svg>Advanced</a>
+      </div>
+    </div>
+    <div class="nav-portal">
+      <div class="nav-group">
+        <div class="nav-label" id="portal-label">Your account</div>
+        <a href="#/home" data-page="home"><svg viewBox="0 0 24 24"><path d="M3.5 11L12 4l8.5 7"/><path d="M5.5 9.5V20h13V9.5"/></svg>Earnings</a>
+        <a href="#/ledger" data-page="ledger"><svg viewBox="0 0 24 24"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5zM13 4h5.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H13z"/></svg>Ledger</a>
+        <a href="#/resources" data-page="resources"><svg viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="16" rx="2"/><circle cx="9" cy="9.5" r="1.8"/><path d="M20.5 16l-5-5-8.5 9"/></svg>Resources</a>
+        <a href="#/progress" data-page="progress"><svg viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4v1.5A3.5 3.5 0 0 0 7.5 11M17 6h3v1.5a3.5 3.5 0 0 1-3.5 3.5"/></svg>Progress</a>
+        <a href="#/tax" data-page="tax"><svg viewBox="0 0 24 24"><path d="M14 3H6.5A1.5 1.5 0 0 0 5 4.5v15A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V8z"/><path d="M14 3v5h5M8.5 13h7M8.5 17h5"/></svg>Tax form</a>
+      </div>
+    </div>
+  </nav>
+  <div class="side-foot">
+    <div class="books" id="books"><i></i><span id="f-integrity">Checking the books…</span></div>
+    <div class="who"><span id="who">Signed in</span><button id="signout" type="button">Sign out</button></div>
+    <div id="keywrap"><input id="key" type="password" autocomplete="off" aria-label="API key" tabindex="-1"></div>
+  </div>
+</aside>
+<div class="scrim" id="scrim"></div>
+
+<div class="main-col">
+  <div id="demo-banner" role="region" aria-label="Demo notice" hidden>Live demo with sample data. Nothing you do here is saved.<a id="demo-trial" href="#">Start free trial</a></div>
+  <header class="topbar">
+    <button type="button" id="menu" aria-label="Open menu" aria-controls="side" aria-expanded="false"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <span class="brand-name">AffiliateTracking</span>
+  </header>
+  <div id="msg" role="status"></div>
+
+<main>
+  <!-- SIGN IN -->
+  <section id="signin" class="center" aria-labelledby="h-signin">
+    <div class="panel hl">
+      <div class="lockup"><svg class="mark" width="26" height="26" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="18" fill="#111"/><path d="M32 10.5c5.8 3.6 11.7 5.3 17.8 5.3.6 1.9.7 3.9.7 5.9 0 15.3-7 26.8-18.5 32.2C20.5 48.5 13.5 37 13.5 21.7c0-2 .1-4 .7-5.9 6.1 0 12-1.7 17.8-5.3z" fill="#E4F46C"/><rect x="25.4" y="21.5" width="5" height="16.5" rx="2.5" fill="#111"/><rect x="33.6" y="21.5" width="5" height="16.5" rx="2.5" fill="#111"/></svg><img class="mark logo-img" width="26" height="26" alt="" hidden><span class="brand-name">AffiliateTracking</span></div>
+      <h1 id="h-signin">Sign in</h1>
+      <p>Program owners: paste your admin key. It starts with ae_.</p>
+      <form id="signin-form">
+        <input id="signin-key" type="password" placeholder="ae_…" spellcheck="false" autocomplete="off" aria-label="API key">
+        <button class="primary" type="submit">Open dashboard</button>
+      </form>
+      <div class="linkmail">
+        <h2 class="lm-h">Partner?</h2>
+        <p>Get a sign-in link by email. It works once, for 1 hour.</p>
+        <form id="linkmail-form">
+          <input id="linkmail-email" type="email" placeholder="you@example.com" autocomplete="email" maxlength="254" required aria-label="Your email">
+          <button class="ghost" type="submit">Email me a link</button>
+        </form>
+        <p class="alt">Not a partner yet? <a href="/apply">Apply to join</a></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- PARTNER SIGN-UP (/apply) -->
+  <section id="apply" class="center" aria-labelledby="h-apply">
+    <div class="panel hl">
+      <div class="lockup"><svg class="mark" width="26" height="26" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="18" fill="#111"/><path d="M32 10.5c5.8 3.6 11.7 5.3 17.8 5.3.6 1.9.7 3.9.7 5.9 0 15.3-7 26.8-18.5 32.2C20.5 48.5 13.5 37 13.5 21.7c0-2 .1-4 .7-5.9 6.1 0 12-1.7 17.8-5.3z" fill="#E4F46C"/><rect x="25.4" y="21.5" width="5" height="16.5" rx="2.5" fill="#111"/><rect x="33.6" y="21.5" width="5" height="16.5" rx="2.5" fill="#111"/></svg><img class="mark logo-img" width="26" height="26" alt="" hidden><span class="brand-name">AffiliateTracking</span></div>
+      <div id="apply-form-wrap">
+        <h1 id="h-apply">Become a partner</h1>
+        <p class="lead">Tell us who you are and where you'd share us. We review every application and reply by email.</p>
+        <ul class="terms" id="ap-terms" hidden></ul>
+        <form id="apply-form">
+          <label>Your name <input type="text" id="ap-name" autocomplete="name" maxlength="120" required></label>
+          <label>Email <input type="email" id="ap-email" autocomplete="email" maxlength="254" required></label>
+          <label>Where will you share it? <textarea id="ap-note" maxlength="500" placeholder="Your website, newsletter, YouTube channel or community, and roughly how many people follow it."></textarea></label>
+          <button class="primary" type="submit">Send application</button>
+          <p class="fine">We only use your email to reply to this application.</p>
+          <p class="fine">Already a partner? <a href="/">Sign in</a></p>
+        </form>
+      </div>
+      <div id="apply-done">
+        <h2>Thanks, we've got it</h2>
+        <p class="lead">We'll review your application and email you. If you're approved, the email has a link that signs you straight in.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= ADMIN ================= -->
+  <section class="page" data-page="overview" data-group="admin">
+    <div class="page-h"><div><h1>Overview</h1><p>How your affiliate program is doing, and what needs you today.</p></div></div>
+    <div class="panel hl" id="setup" hidden>
+      <div class="panel-h"><div><h2>Get started</h2><p>Steps to your first partner sale. Each one ticks itself off.</p></div><span class="progress" id="setup-progress"></span></div>
+      <ol class="steps" id="setup-steps"></ol>
+      <p class="note" style="margin-top:14px">Want proof it works? <button class="mini go" type="button" data-setup-check>Test your setup</button></p>
+    </div>
+    <div class="cards" id="a-cards"></div>
+    <div class="panel">
+      <div class="panel-h"><div><h2>Needs your attention</h2></div></div>
+      <ul class="todo" id="todo"></ul>
+      <div class="allclear" id="allclear" hidden>✓ All clear. Nothing needs you right now.</div>
+    </div>
+    <div class="panel trend" id="trend">
+      <div class="panel-h"><div><h2>Last 30 days</h2><p class="trend-read">Point at a day to see its numbers.</p></div>
+        <div class="seg" role="tablist" aria-label="Chart shows">
+          <button type="button" role="tab" data-metric="clicks" aria-selected="true">Clicks <b data-total="clicks">0</b></button>
+          <button type="button" role="tab" data-metric="conversions" aria-selected="false">Sales <b data-total="conversions">0</b></button>
+          <button type="button" role="tab" data-metric="commission_cents" aria-selected="false">Commission <b data-total="commission_cents">$0.00</b></button>
+        </div>
+      </div>
+      <div class="trend-cur-row" hidden style="margin:4px 0 8px"><label class="field">Commission in <select class="trend-cur"></select></label></div>
+      <div class="chart"></div>
+      <div class="chart-x"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-h"><div><h2>Top earners</h2><p>Your partners with the most commission earned, all time.</p></div><a href="#/partners" class="muted" style="font-size:14px;font-weight:600">All partners →</a></div>
+      <div class="tbl"><table><thead><tr><th>Partner</th><th class="num">Earned, all time</th><th>Status</th></tr></thead><tbody id="a-leaders"><tr><td colspan="3" class="none">Loading…</td></tr></tbody></table></div>
+    </div>
+  </section>
+
+  <section class="page" data-page="partners" data-group="admin">
+    <div class="page-h"><div><h1>Partners</h1><p>Everyone in your program, with what they've earned. New partners come in through <a href="/apply" target="_blank" rel="noopener">your signup page</a>.</p></div>
+      <div class="row"><div class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input type="search" id="aff-search" placeholder="Search by email or name" aria-label="Search partners"></div><button class="ghost" id="news-open">Email partners</button><button class="primary" id="add-partner">Add partner</button></div></div>
+    <div class="panel">
+      <div class="tbl"><table><thead><tr>
+        <th>Partner</th><th>Status</th><th class="num">In hold</th><th class="num">Ready to pay</th><th class="num">Paid</th><th class="num">Clicks, 30 days</th>
+      </tr></thead><tbody id="a-affs"><tr><td colspan="6" class="none">Loading…</td></tr></tbody></table></div>
+      <p class="note">Click a partner to see their referral link and send them a sign-in link.</p>
+      <div id="aff-none" class="empty" hidden>No partner matches that search.</div>
+    </div>
+    <div class="panel" id="rs-panel">
+      <div class="panel-h"><div><h2>Resources for partners</h2><p>Banners, logos, ready-to-copy text and useful links. Partners find them under Resources in their portal, set up with their own referral link.</p></div></div>
+      <div id="rs-list"></div>
+      <h3>Add a resource</h3>
+      <form id="rs-form" class="field-grid">
+        <label class="field">Type <select id="rs-kind"><option value="text">Text to copy</option><option value="image">Banner or logo</option><option value="link">Link to a page</option></select></label>
+        <label class="field">Title <input type="text" id="rs-title" maxlength="120" placeholder="Short email intro"></label>
+        <label class="field rs-for" data-kind="text" style="grid-column:1/-1">Text <textarea id="rs-text" rows="4" maxlength="5000" placeholder="I've used Acme for a year and it saved me hours a week. Try it: {link}"></textarea><small>Write {link} where their referral link should go.</small></label>
+        <label class="field rs-for" data-kind="image" hidden>Image <input type="file" id="rs-file" accept="image/png,image/jpeg,image/webp,image/gif"><small>PNG, JPEG, WebP or GIF, up to 2 MB.</small></label>
+        <label class="field rs-for" data-kind="link" hidden>Page address <input type="url" id="rs-url" maxlength="2000" placeholder="https://yoursite.com/pricing"><small>Partners get a referral link straight to this page.</small></label>
+      </form>
+      <div class="row"><button class="ghost" id="rs-save" form="rs-form" type="submit">Add resource</button><span id="rs-out" class="muted"></span></div>
+    </div>
+  </section>
+
+  <section class="page" data-page="applications" data-group="admin">
+    <div class="page-h"><div><h1>Applications</h1><p>People who applied on <a href="/apply" target="_blank" rel="noopener">your signup page</a>. Approving one gives them a referral code and emails them a sign-in link.</p></div></div>
+    <div class="panel">
+      <div id="a-apps-out"></div>
+      <div id="a-apps-empty" class="empty">No applications waiting. Share <b><span class="origin"></span>/apply</b> to get more partners.</div>
+      <div class="tbl"><table id="a-apps-table" style="display:none"><thead><tr>
+        <th>Applicant</th><th>Where they'll share it</th><th>Applied</th><th><span class="sr-only">Actions</span></th>
+      </tr></thead><tbody id="a-apps"></tbody></table></div>
+    </div>
+  </section>
+
+  <section class="page" data-page="fraud" data-group="admin">
+    <div class="page-h"><div><h1>Fraud</h1><p>Sales the fraud rules held back. Nothing held is paid until you decide.</p></div></div>
+    <div class="panel">
+      <div class="panel-h"><div><h2>Held commissions</h2><p>Release pays it as normal. Uphold cancels the commission and takes the money back.</p></div></div>
+      <div id="a-holds-empty" class="empty">No money on hold.</div>
+      <div class="tbl"><table id="a-holds-table" style="display:none"><thead><tr>
+        <th>Partner</th><th class="num">Amount</th><th>Held because</th><th>Decision</th>
+      </tr></thead><tbody id="a-holds"></tbody></table></div>
+    </div>
+    <div class="panel">
+      <div class="panel-h"><div><h2>Why they were flagged</h2><p>Each verdict names the rule, who it's about and what it saw.</p></div></div>
+      <div id="a-fraud-empty" class="empty">No open verdicts.</div>
+      <div class="tbl"><table id="a-fraud-table" style="display:none"><thead><tr>
+        <th>Rule</th><th>About</th><th>What it saw</th><th>Result</th>
+      </tr></thead><tbody id="a-verdicts"></tbody></table></div>
+    </div>
+  </section>
+
+  <section class="page" data-page="payouts" data-group="admin">
+    <div class="page-h"><div><h1>Payouts</h1><p>Work out who's owed what, pay them from your own account, then mark each payout as paid to settle the books.</p></div></div>
+    <div class="panel">
+      <div class="panel-h"><div><h2>1. Create payouts</h2><p>Adds up each partner's ready commissions into one payout. Preview first: it shows who gets paid and changes nothing.</p></div></div>
+      <div class="field-grid">
+        <label class="field">Pay partners owed at least ($) <input type="number" id="pr-min" min="0" step="0.01"><small>Your program minimum, unless you change it here.</small></label>
+        <label class="field">How you'll pay <select id="pr-method" aria-label="Payout method"><option value="paypal">PayPal</option><option value="wise">Wise</option><option value="manual">Bank transfer or other</option></select><small>Picks which CSV the payouts go in.</small></label>
+      </div>
+      <div class="row"><button class="ghost" id="pr-preview">Preview</button><button class="primary" id="pr-go">Create payouts</button></div>
+      <div id="pr-out" style="margin-top:16px" hidden></div>
+    </div>
+    <div class="panel">
+      <div class="panel-h"><div><h2>2. Pay, then mark as paid</h2><p>Pay each one through PayPal, Wise or your bank, then press Mark as paid. That settles the books and emails the partner.</p></div>
+        <div class="row"><button class="ghost" id="po-paypal">PayPal CSV</button><button class="ghost" id="po-wise">Wise CSV</button></div></div>
+      <div id="po-empty" class="empty">Nothing waiting to be paid.</div>
+      <div class="tbl"><table id="po-table" style="display:none"><thead><tr>
+        <th>Partner</th><th class="num">Amount</th><th>Pay by</th><th>Pay to</th><th>Created</th><th><span class="sr-only">Actions</span></th>
+      </tr></thead><tbody id="po-body"></tbody></table></div>
+      <p class="note">Each CSV lists that method's payouts that are safe to pay, once each, ready to upload to PayPal or Wise. If a hold, tax form or refund lands after you download it, that payout is flagged here and never added to another file.</p>
+    </div>
+  </section>
+
+  <section class="page" data-page="taxforms" data-group="admin">
+    <div class="page-h"><div><h1>Tax forms</h1><p>A pending or rejected form keeps that partner out of payouts. Partners upload theirs from their portal. Download each one, then approve or reject it.</p></div></div>
+    <div class="panel">
+      <div id="a-tax-empty" class="empty">No tax forms yet.</div>
+      <div class="tbl"><table id="a-tax-table" style="display:none"><thead><tr>
+        <th>Partner</th><th>Form</th><th>Status</th><th>Reviewed</th><th>File</th><th><span class="sr-only">Actions</span></th>
+      </tr></thead><tbody id="a-taxdocs"></tbody></table></div>
+    </div>
+    <div class="panel">
+      <div class="panel-h"><div><h2>Record a form you collected elsewhere</h2><p>It starts as pending, which blocks that partner's payouts until you approve it.</p></div></div>
+      <div class="row">
+        <select id="tx-aff" class="aff-pick" aria-label="Partner" style="min-width:240px"><option value="">Choose a partner</option></select>
+        <select id="tx-type" aria-label="Form type"><option value="w9">W-9</option><option value="w8ben">W-8BEN</option><option value="w8bene">W-8BEN-E</option><option value="other">Other</option></select>
+        <button class="ghost" id="tx-record">Record as pending</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="page" data-page="settings" data-group="admin">
+    <div class="page-h"><div><h1>Settings</h1><p>What partners earn, when they get paid, and how your site connects.</p></div></div>
+    <div class="panel">
+      <div class="panel-h"><div><h2>Commission</h2><p>A sale earns nothing until its program has a commission rate.</p></div></div>
+      <div class="field-grid">
+        <label class="field">Program <select id="cs-camp" aria-label="Program" data-nosave></select></label>
+        <label class="field">Commission <input type="number" id="cs-rate" min="0" step="0.01"></label>
+        <label class="field">Type <select id="cs-type" aria-label="Commission type"><option value="percent">% of each payment</option><option value="fixed">$ per payment</option></select></label>
+        <label class="field">Pay for how many months <input type="number" id="cs-months" min="0" max="120" step="1"><small>0 pays for the customer's lifetime.</small></label>
+        <label class="field">Cookie (days) <input type="number" id="cs-window" min="1" max="365" step="1"><small>How long a click keeps credit.</small></label>
+        <label class="field">Hold before payout (days) <input type="number" id="cs-hold" min="0" max="365" step="1"><small>Time for refunds and fraud checks.</small></label>
+      </div>
+      <div class="row"><button class="primary" id="cs-save">Save commission</button><span id="cs-out" class="muted"></span></div>
+    </div>
+    <div class="panel" id="tr-panel">
+      <div class="panel-h"><div><h2>Bonus tiers</h2><p>Reward your best partners automatically. Once a partner's total sales reach an amount, every sale after that earns the higher rate. A partner's own rate always comes first.</p></div></div>
+      <div id="tr-list"></div>
+      <form id="tr-add" class="field-grid" style="margin-top:12px">
+        <label class="field">When their total sales reach ($) <input type="number" id="tr-at" min="0" step="1" placeholder="5000"></label>
+        <label class="field">They earn <input type="number" id="tr-rate" min="0" step="0.01" placeholder="35"></label>
+        <label class="field">Type <select id="tr-type"><option value="percent">% of each payment</option><option value="fixed">$ per payment</option></select></label>
+      </form>
+      <div class="row"><button class="ghost" id="tr-save" form="tr-add" type="submit">Add tier</button><span id="tr-out" class="muted"></span></div>
+    </div>
+    <div class="panel">
+      <div class="panel-h"><div><h2>Brand</h2><p>What partners see in their portal, on your signup page and in every email.</p></div></div>
+      <div class="field-grid">
+        <label class="field">Program name <input type="text" id="br-name" maxlength="80" placeholder="Acme Partner Program"><small>Emails come from this name, like "You're in: Acme Partner Program".</small></label>
+        <label class="field">Brand colour <input type="color" id="br-color" value="#111111" style="height:40px;padding:4px;width:100%"><small>Buttons in your dashboard and partner portal.</small></label>
+      </div>
+      <div class="logo-row" data-nosave>
+        <span class="logo-prev" id="br-logo-prev"></span>
+        <div class="logo-text">Logo<small>Square works best. PNG, JPG, SVG, WebP or GIF. Big files are shrunk for you.<br>Shows in your sidebar, the partner portal and your signup page.</small></div>
+        <button type="button" class="ghost" id="br-logo-pick">Upload logo</button>
+        <button type="button" class="mini" id="br-logo-rm" hidden>Remove</button>
+        <input type="file" id="br-logo-file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+        <span id="br-logo-out" class="muted"></span>
+      </div>
+      <div class="row"><button class="ghost" id="br-save">Save brand</button><span id="br-out" class="muted"></span></div>
+    </div>
+    <div class="panel">
+      <div class="panel-h"><div><h2>Payouts</h2><p>The default hold applies to new programs. Each program keeps its own hold, set above.</p></div></div>
+      <div class="field-grid">
+        <label class="field">Minimum payout ($) <input type="number" id="ps-min" min="0" step="0.01"><small>Smaller balances wait for the next run.</small></label>
+        <label class="field">Default hold (days) <input type="number" id="ps-hold" min="0" max="365" step="1"></label>
+      </div>
+      <div class="row"><button class="ghost" id="ps-save">Save payout settings</button><span id="ps-out" class="muted"></span></div>
+    </div>
+    <div class="panel" id="nt-panel">
+      <div class="panel-h"><div><h2>Emails</h2><p>What we email you, and what we email your partners for you.</p></div></div>
+      <h3 class="nt-h">To you</h3>
+      <label class="check"><input type="checkbox" id="nt-on"> When something needs me</label>
+      <p class="note nt-sub">New applications, held commissions, payouts to send or tax forms to review. At most once a day, and only when something new is waiting.</p>
+      <label class="check"><input type="checkbox" id="nt-weekly"> A weekly report</label>
+      <p class="note nt-sub">Every Monday: last week's clicks, sales and commission, and your top partners.</p>
+      <div class="field-grid" style="margin-top:12px">
+        <label class="field">Send to <input type="email" id="nt-email" maxlength="254" placeholder="you@yourcompany.com" autocomplete="email"></label>
+      </div>
+      <h3 class="nt-h">To your partners</h3>
+      <label class="check"><input type="checkbox" id="nt-tips"> Tips for new partners who haven't started</label>
+      <p class="note nt-sub">A week after joining, a partner whose link has no clicks yet gets three easy ways to share it.</p>
+      <label class="check"><input type="checkbox" id="nt-recap"> A monthly recap</label>
+      <p class="note nt-sub">On the 1st: their clicks, sales and earnings last month, and what's ready to pay. Partners can unsubscribe.</p>
+      <p class="note" id="nt-off" hidden>Emails are switched off on this install, so nothing can be sent yet. Self-hosting? Set AE_MAIL_PROVIDER, AE_MAIL_KEY and AE_MAIL_FROM (see the docs).</p>
+      <div class="row"><button class="ghost" id="nt-save">Save emails</button><span id="nt-out" class="muted"></span></div>
+    </div>
+    <div class="panel">
+      <div class="panel-h"><div><h2>Your setup</h2><p>What's connected, and the two things to put on your site.</p></div><button class="ghost" type="button" data-setup-check>Test your setup</button></div>
+      <div id="setup-status"></div>
+      <h3>Tracking script</h3>
+      <p class="note" style="margin:0 0 8px">Put this on every page of your website, before &lt;/body&gt;. It remembers which partner sent each visitor.</p>
+      <div class="snip"><code id="snip-script"></code><button class="mini" data-copy="snip-script">Copy</button></div>
+      <h3>Partner signup page</h3>
+      <p class="note" style="margin:0 0 8px">Link to this from your website so people can apply to be partners.</p>
+      <div class="snip"><code id="snip-apply"></code><button class="mini" data-copy="snip-apply">Copy</button></div>
+    </div>
+  </section>
+
+  <section class="page" data-page="import" data-group="admin">
+    <div class="page-h"><div><h1>Import</h1><p>Bring your partners, their links and coupons from Rewardful, FirstPromoter, Tapfiliate or Tolt. Review first: nothing is written until you press Import, and each import can be undone until money moves against it.</p></div></div>
+    <div class="panel">
+      <div class="field-grid">
+        <label class="field">Import from <select id="im-src" aria-label="Import from">
+          <option value="rewardful">Rewardful</option><option value="firstpromoter">FirstPromoter</option>
+          <option value="tapfiliate">Tapfiliate</option><option value="tolt">Tolt</option>
+        </select></label>
+        <label class="field">Affiliates CSV <input type="file" id="im-aff" accept=".csv,text/csv"></label>
+        <label class="field">Referrals CSV <small>Optional</small><input type="file" id="im-ref" accept=".csv,text/csv"></label>
+        <label class="field">Commissions CSV <small>Optional</small><input type="file" id="im-com" accept=".csv,text/csv"></label>
+      </div>
+      <div class="row">
+        <button class="ghost" id="im-review">Review (dry run)</button>
+        <button class="primary" id="im-go" disabled title="Review these files first">Import</button>
+      </div>
+      <div id="im-out" style="display:none;margin-top:16px"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-h"><div><h2>Past imports</h2></div></div>
+      <div id="im-empty" class="empty">No imports yet.</div>
+      <div class="tbl"><table id="im-table" style="display:none"><thead><tr>
+        <th>Batch</th><th>From</th><th class="num">Affiliates</th><th>Imported</th><th><span class="sr-only">Actions</span></th>
+      </tr></thead><tbody id="im-body"></tbody></table></div>
+    </div>
+  </section>
+
+  <section class="page" data-page="advanced" data-group="admin">
+    <div class="page-h"><div><h1>Advanced</h1><p>Tools most programs never need.</p></div></div>
+    <div class="panel">
+      <div class="panel-h"><div><h2>Usage ingest</h2><p>Record metered usage for a customer and settle its commission.</p></div></div>
+      <div class="field-grid">
+        <label class="field">Customer ID <input type="text" id="ui-cust" placeholder="cus_123"><small>As your billing tool knows them.</small></label>
+        <label class="field">Units used <input type="number" id="ui-units" min="1" step="1" placeholder="1000"></label>
+        <label class="field">Unit name <input type="text" id="ui-type" value="tokens"><small>Like tokens, API calls or seats.</small></label>
+        <label class="field">Commission rate (basis points) <input type="number" id="ui-rate" value="300" min="0" step="1"><small>100 basis points is 1%. 300 is 3%.</small></label>
+      </div>
+      <div class="row"><button class="ghost" id="ui-go">Record usage and settle</button></div>
+      <div id="ui-out" class="note" style="display:none"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-h"><div><h2>Multi-level placement</h2><p>Place a partner under the partner who recruited them.</p></div></div>
+      <div class="field-grid">
+        <label class="field">Partner <select id="ml-a" class="aff-pick"><option value="">Choose a partner</option></select></label>
+        <label class="field">Recruited by <select id="ml-sponsor" class="aff-pick"><option value="">Choose a partner</option></select></label>
+      </div>
+      <div class="row"><button class="ghost" id="ml-go">Place in tree</button></div>
+      <div id="ml-out" class="note" style="display:none"></div>
+    </div>
+  </section>
+
+  <!-- ================= PARTNER PORTAL ================= -->
+  <section class="page" data-page="home" data-group="portal">
+    <div class="page-h"><div><h1>Your earnings</h1><p>Every number here comes straight from the ledger, the same books the program owner pays from.</p></div></div>
+    <div class="proof bad" id="p-taxblock" style="display:none"></div>
+    <div class="panel linkgen hl">
+      <div class="panel-h"><div><h2>Your referral link</h2><p>Share it anywhere. Everyone who buys through it is credited to you.</p></div></div>
+      <div class="snip big"><code id="p-link">Loading…</code><button class="mini go" data-copy="p-link">Copy link</button></div>
+      <p class="note" id="p-deal" hidden></p>
+      <h3>Link to a different page</h3>
+      <div class="row">
+        <input type="text" id="lg-dest" placeholder="Paste a page, like their pricing page" style="flex:1 1 320px">
+        <input type="text" id="lg-sub" placeholder="Sub ID (optional)" style="flex:0 1 180px">
+        <button class="ghost" id="lg-go">Make link</button>
+      </div>
+      <div class="out" id="lg-out" style="display:none" title="Click to copy"></div>
+    </div>
+    <div class="cards" id="p-cards"></div>
+    <div class="panel trend" id="p-trend">
+      <div class="panel-h"><div><h2>Last 30 days</h2><p class="trend-read">Point at a day to see its numbers.</p></div>
+        <div class="seg" role="tablist" aria-label="Chart shows">
+          <button type="button" role="tab" data-metric="clicks" aria-selected="true">Clicks <b data-total="clicks">0</b></button>
+          <button type="button" role="tab" data-metric="conversions" aria-selected="false">Sales <b data-total="conversions">0</b></button>
+          <button type="button" role="tab" data-metric="commission_cents" aria-selected="false">Earned <b data-total="commission_cents">$0.00</b></button>
+        </div>
+      </div>
+      <div class="trend-cur-row" hidden style="margin:4px 0 8px"><label class="field">Earnings in <select class="trend-cur"></select></label></div>
+      <div class="chart"></div>
+      <div class="chart-x"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-h"><div><h2>Recent commissions</h2><p>New commissions wait out the hold, then become payable.</p></div></div>
+      <div class="tbl"><table><thead><tr>
+        <th>Earned on</th><th class="num">Amount</th><th>Status</th><th>Ready to pay from</th>
+      </tr></thead><tbody id="p-comms"></tbody></table></div>
+    </div>
+    <div class="panel">
+      <div class="panel-h"><div><h2>Your payouts</h2><p>Money the program has sent you, or is about to.</p></div></div>
+      <div class="tbl"><table><thead><tr>
+        <th>Date</th><th class="num">Amount</th><th>How</th><th>Status</th>
+      </tr></thead><tbody id="p-payouts"></tbody></table></div>
+    </div>
+    <div class="panel" id="payto">
+      <div class="panel-h"><div><h2>How you get paid</h2><p>Where the program sends your money. Only you and the program owner can see it.</p></div></div>
+      <div class="field-grid">
+        <label class="field">Pay me by <select id="pt-method"><option value="paypal">PayPal</option><option value="wise">Wise</option><option value="bank">Bank transfer</option></select></label>
+        <label class="field" data-for="paypal">PayPal email <input type="email" id="pt-paypal" autocomplete="email" maxlength="254" placeholder="you@example.com"></label>
+        <label class="field" data-for="wise" hidden>Wise email <input type="email" id="pt-wise" autocomplete="email" maxlength="254" placeholder="you@example.com"></label>
+      </div>
+      <label class="field" data-for="bank" hidden>Bank details <textarea id="pt-bank" maxlength="1000" rows="4" placeholder="Account holder name&#10;IBAN or account and routing number&#10;Bank name and country"></textarea><small>Stored encrypted.</small></label>
+      <div class="row"><button class="primary" id="pt-save">Save</button><span id="pt-out" class="muted"></span></div>
+    </div>
+  </section>
+
+  <section class="page" data-page="ledger" data-group="portal">
+    <div class="page-h"><div><h1>Your ledger</h1><p>Every change to what you're owed, in order. It's double-entry bookkeeping: each entry balances (Σ=0), so the numbers can't drift.</p></div></div>
+    <div class="proof" id="p-proof" style="display:none"></div>
+    <div class="panel">
+      <div id="p-ledger-cur-wrap" hidden style="margin-bottom:12px">
+        <label class="field">Currency <select id="p-ledger-cur" aria-describedby="p-ledger-cur-note"></select>
+          <small id="p-ledger-cur-note">Each currency has its own balance. Nothing is converted.</small></label>
+      </div>
+      <div class="tbl"><table><thead><tr>
+        <th>Date</th><th>What happened</th><th class="num">Amount</th><th class="num">You're owed</th><th>Balanced</th>
+      </tr></thead><tbody id="p-ledger"></tbody></table></div>
+    </div>
+  </section>
+
+  <section class="page" data-page="resources" data-group="portal">
+    <div class="page-h"><div><h1>Resources</h1><p>Banners, logos and ready-to-use text from the program, already set up with your referral link.</p></div></div>
+    <div id="rs-portal"></div>
+  </section>
+
+  <section class="page" data-page="progress" data-group="portal">
+    <div class="page-h"><div><h1>Progress</h1><p>Levels and badges grow with what you really earn.</p></div></div>
+    <div class="two">
+      <div class="panel">
+        <div class="panel-h"><div><h2>Your level</h2></div></div>
+        <div class="cards" id="g-cards"></div>
+        <div id="g-badges" class="badges-row"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-h"><div><h2>Leaderboard</h2></div></div>
+        <div class="tbl"><table><thead><tr><th class="num">Rank</th><th>Affiliate</th><th class="num">XP</th><th class="num">Level</th></tr></thead><tbody id="g-lb"></tbody></table></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="page" data-page="tax" data-group="portal">
+    <div class="page-h"><div><h1>Tax form</h1><p>US persons send a W-9. Everyone else sends a W-8BEN (individuals) or W-8BEN-E (companies). PDF only, 5 MB max. Only the program owner can open it, and they review it before your next payout.</p></div></div>
+    <div class="panel">
+      <div class="field-grid">
+        <label class="field">Form <select id="tf-type"><option value="w9">W-9 (US persons)</option><option value="w8ben">W-8BEN (individuals outside the US)</option><option value="w8bene">W-8BEN-E (companies outside the US)</option></select></label>
+        <label class="field">The signed PDF <input type="file" id="tf-file" accept="application/pdf,.pdf"></label>
+      </div>
+      <div class="row"><button class="primary" id="tf-go">Upload</button>
+      </div>
+      <div class="tbl" style="margin-top:16px"><table id="tf-table" style="display:none"><thead><tr>
+        <th>Form</th><th>Status</th><th>File</th><th>Uploaded</th><th>Note</th>
+      </tr></thead><tbody id="tf-body"></tbody></table></div>
+    </div>
+  </section>
+</main>
+</div>
+
+<dialog id="dlg">
+  <form method="dialog">
+    <h2 id="dlg-title"></h2>
+    <p id="dlg-body"></p>
+    <textarea id="dlg-note" aria-label="Note" rows="3" maxlength="1000" hidden></textarea>
+    <div class="btns"><button class="ghost" value="cancel" id="dlg-cancel">Cancel</button><button class="primary" value="ok" id="dlg-ok">OK</button></div>
+  </form>
+</dialog>
+<dialog id="add-dlg">
+  <form id="add-form">
+    <h2 style="font:600 19px/1.3 var(--head)">Add a partner</h2>
+    <p class="muted" style="font-size:14px" id="add-help">They get a referral link right away.</p>
+    <label>Name <input type="text" id="add-name" maxlength="120" required autocomplete="off"></label>
+    <label>Email <input type="email" id="add-email" maxlength="254" required autocomplete="off"></label>
+    <label>Note (optional) <textarea id="add-note" maxlength="500" rows="2" placeholder="Where they'll share it"></textarea></label>
+    <div id="add-out"></div>
+    <div class="btns" style="display:flex;justify-content:flex-end;gap:10px"><button class="ghost" type="button" id="add-cancel">Cancel</button><button class="primary" type="submit" id="add-go">Add partner</button></div>
+  </form>
+</dialog>
+<dialog id="news-dlg">
+  <form id="news-form">
+    <h2 style="font:600 19px/1.3 var(--head)">Email your partners</h2>
+    <p class="muted" style="font-size:14px" id="news-help">Program news, like a higher commission this month or a new page to link to.</p>
+    <label>Subject <input type="text" id="news-subject" maxlength="150" required autocomplete="off" placeholder="40% commission until Friday"></label>
+    <label>Message <textarea id="news-body" maxlength="5000" rows="7" required placeholder="Hi! Commission is 40% on every sale until Friday. The pricing page converts best."></textarea></label>
+    <p class="note" style="margin:0">Paused partners and anyone who unsubscribed are skipped. Every email has an unsubscribe link.</p>
+    <div id="news-out"></div>
+    <div class="btns" style="display:flex;justify-content:flex-end;gap:10px"><button class="ghost" type="button" id="news-cancel">Cancel</button><button class="primary" type="submit" id="news-go">Send</button></div>
+  </form>
+</dialog>
+<dialog id="sc-dlg" aria-labelledby="sc-title">
+  <div class="sc-in">
+    <div class="top"><h2 id="sc-title">Test your setup</h2><button class="x" type="button" id="sc-close" aria-label="Close">×</button></div>
+    <p class="muted">Three checks, each live. Takes about five minutes.</p>
+    <ol class="sc-steps">
+      <li id="sc-1"><b>1</b><div><h3>The script is on your website</h3>
+        <form class="row" id="sc-site-form"><label class="sr-only" for="sc-site">Your website</label><input type="text" id="sc-site" placeholder="https://yoursite.com" style="flex:1 1 220px"><button class="mini go" type="submit">Check</button></form>
+        <p class="sc-out" id="sc-site-out" role="status"></p></div></li>
+      <li id="sc-2"><b>2</b><div><h3>A partner click is recorded</h3>
+        <p>We made a test partner for you. Open their link: it goes to your website, like a real visitor from a partner.</p>
+        <div class="snip"><code id="sc-link"></code><a class="mini go" id="sc-open" target="_blank" rel="noopener">Open link</a></div>
+        <p class="sc-out" id="sc-click-out" role="status">Waiting for the click…</p></div></li>
+      <li id="sc-3"><b>3</b><div><h3>A sale is credited</h3>
+        <p>In the tab that opened, buy something using your billing tool's test mode. With Stripe, use card 4242 4242 4242 4242, any future date and any CVC.</p>
+        <p class="sc-out" id="sc-sale-out" role="status">Waiting for a test sale…</p></div></li>
+    </ol>
+    <div class="sc-done" id="sc-done" hidden><p><b>All working.</b> To clean up, refund the test payment in your billing tool: we take the commission back automatically. Then pause the test partner so nothing is ever paid to it.</p><button class="primary" type="button" id="sc-pause">Pause test partner</button></div>
+  </div>
+</dialog>
+<dialog id="pp" class="drawer" aria-labelledby="pp-name"><div class="in" id="pp-in"></div></dialog>
+<div id="toast"></div>
+<!-- Every amount in this dashboard comes from the double-entry ledger (Σ=0 per journal). -->
+<script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- No network at all: connect-src 'none' blocks fetch/XHR/WebSocket/beacons,
+     and the only scripts allowed are this folder's own modules. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; connect-src 'none'; img-src 'none'; style-src 'none'; font-src 'none'; form-action 'none'; base-uri 'none'">
+<title>Fraud scan demo</title>
+</head>
+<body>
+<h1>Fraud scan (demo)</h1>
+
+<h2>1. Scan an export</h2>
+<p id="privacy">Your file is read in your browser. It is never uploaded.</p>
+<p>
+  <label>Export from
+    <select id="tool">
+      <option value="">Detect for me</option>
+      <option value="rewardful">Rewardful</option>
+      <option value="firstpromoter">FirstPromoter</option>
+      <option value="tapfiliate">Tapfiliate</option>
+      <option value="tolt">Tolt</option>
+    </select>
+  </label>
+  <input type="file" id="file" accept=".csv,text/csv">
+</p>
+<p id="status"></p>
+<div id="summary"></div>
+<table id="findings" border="1" hidden>
+  <thead><tr><th>Check</th><th>Affiliate</th><th>Sales flagged</th><th>Commission</th><th>Examples</th></tr></thead>
+  <tbody></tbody>
+</table>
+<h3>Checks we could not run on this file</h3>
+<ul id="skipped"></ul>
+
+<h2>2. No file? Estimate it</h2>
+<p>
+  <label>Affiliate payouts per month <input id="monthly" type="number" min="0" step="1" value="10000"></label><br>
+  <label>Share paid on coupon codes (%) <input id="coupon" type="number" min="0" max="100" step="1" value="30"></label><br>
+  <label>Fraud rate (%) <input id="rate" type="number" min="0" max="100" step="0.5" value="5"></label>
+  <span id="presets"></span>
+</p>
+<ul id="estimate"></ul>
+
+<script type="module" src="./demo.js"></script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+.bin/
+dist/
+*.db
+*.db-wal
+*.db-shm
+*.secret
+
+# local tool caches and editor or agent state
+.wrangler/
+/.claude/
+
+# Secrets: env files, keys and Worker dev vars. Only *.example env
+# files are tracked.
+.env*
+!.env*.example
+*.key
+*.pem
+**/.dev.vars
+
+
+# local go build outputs
+/affiliate-engine
+
+
+# Pinned lint tools built by make lint
+/.bin/
+
+

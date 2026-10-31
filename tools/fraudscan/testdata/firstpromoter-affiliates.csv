@@ -1,0 +1,6 @@
+Email Address,Full Name,Referral ID,State,Coupon Code
+one@saas.dev,One PM,ref_one,accepted,SAVE10
+two@saas.dev,Two,ref_two,pending,
+not-an-email,Bad,,,
+o.n.e.pm@gmail.com,One Gmail,ref_g1,accepted,
+onepm+b@gmail.com,One Gmail B,ref_g2,accepted,

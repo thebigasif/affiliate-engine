@@ -1,0 +1,5 @@
+email,name,referral_id,status,coupon
+jane@shop.io,Jane Doe,janeslink,active,JANE20
+bob@shop.io,Bob,janeslink,active,
+banned@shop.io,Bad,person,blocked,
+jane+promo@shop.io,Jane Alias,janes2,active,

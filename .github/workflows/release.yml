@@ -1,0 +1,150 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+# Default: read-only. Only the publish job gets write, and it runs no tests
+# or third-party build code before it has the artifacts.
+permissions:
+  contents: read
+
+jobs:
+  build:
+    # Pinned: ubuntu-latest flips to Ubuntu 26 on 2026-10-19
+    # (actions/runner-images#14748). The release pipeline must not change
+    # runners under a tag — upgrade deliberately, not overnight.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Gate — full suite must pass on the tagged commit
+        run: |
+          go vet ./...
+          go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
+          go test ./... -count=1
+
+      - name: Cross-compile via Makefile (CGO-free, stripped, stamped)
+        run: make release-dist VERSION=${GITHUB_REF_NAME}
+
+      - name: Assert every artifact matches its advertised architecture
+        # Match on format token + arch token instead of an exact-prefix glob:
+        # file(1) output is dialect-dependent (macOS: "Mach-O 64-bit executable
+        # x86_64"; Linux: "Mach-O 64-bit x86_64 executable, flags:<|DYLDLINK|PIE>").
+        # Both dialects always contain the format token and the arch token, so
+        # requiring both catches a host-arch binary under a target's name while
+        # accepting either word order.
+        run: |
+          set -eu
+          cd dist
+          for f in affiliate-engine-*; do
+            case "$f" in
+              *linux-amd64)       fmt="ELF";    arch="x86-64" ;;
+              *linux-arm64)       fmt="ELF";    arch="aarch64" ;;
+              *darwin-amd64)      fmt="Mach-O"; arch="x86_64" ;;
+              *darwin-arm64)      fmt="Mach-O"; arch="arm64" ;;
+              *windows-amd64.exe) fmt="PE32+";  arch="x86-64" ;;
+              *) continue ;; # anything else (none expected)
+            esac
+            got=$(/usr/bin/file "$f")
+            echo "$f -> $got"
+            if echo "$got" | grep -q "$fmt" && echo "$got" | grep -q -- "$arch"; then
+              echo "OK: $f"
+            else
+              echo "::error::$f is '$got' — expected $fmt + $arch. GOOS/GOARCH was not applied."
+              exit 1
+            fi
+          done
+
+      - name: Checksums
+        run: cat dist/checksums.txt
+
+      - name: Smoke-test the linux binary (fresh install path)
+        run: |
+          ./dist/affiliate-engine-linux-amd64 -db sqlite:/tmp/smoke.db doctor | tail -1
+          ./dist/affiliate-engine-linux-amd64 -db sqlite:/tmp/smoke.db migrate
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: dist
+          path: dist/
+          retention-days: 7
+
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write # create the release
+      packages: write # push ghcr.io image
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: dist
+          path: dist/
+
+      - name: Create GitHub release with artifacts
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
+        with:
+          files: dist/*
+          generate_release_notes: true
+          body: |
+            See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for the full history.
+
+            **Verify a download:**
+            ```
+            shasum -a 256 -c checksums.txt
+            ```
+            Single static binary, CGO-free. SQLite is embedded; PostgreSQL
+            works via `-db "postgres://..."`. See DEPLOY.md.
+
+      - name: Log in to GHCR
+        # build-push-action does not authenticate on its own; packages: write
+        # grants GITHUB_TOKEN the right, but something has to log in with it.
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push container image
+        # Pre-release tags (v1.2.0-rc1) never move :latest.
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+        with:
+          context: .
+          push: true
+          build-args: VERSION=${{ github.ref_name }}
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+            ${{ !contains(github.ref_name, '-') && format('ghcr.io/{0}:latest', github.repository) || '' }}
+
+      - name: Smoke-test the pushed image (pull + run)
+        # Tag name and repo come in through env, never inlined into the script.
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          img="ghcr.io/${REPO}:${REF_NAME}"
+          if ! got="$(docker run --rm "$img" version)"; then
+            echo "::error::failed to pull or run $img — image missing from registry or entrypoint broken"
+            exit 1
+          fi
+          echo "image reports version: $got"
+          if [ "$got" != "$REF_NAME" ]; then
+            echo "::error::image reports version '$got', expected '$REF_NAME' (VERSION build-arg not applied?)"
+            exit 1
+          fi
