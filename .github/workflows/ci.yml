@@ -6,11 +6,11 @@ name: ci
 # after a merge gets the quick gates only.
 
 on:
+  # Every PR runs, so the required checks always report. A PR that only
+  # touches docs/ or Markdown skips gates and test (a skipped job counts
+  # as passed); see the changes job.
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-    paths-ignore:
-      - "docs/**"
-      - "**.md"
   push:
     branches: [main]
     paths-ignore:
@@ -37,8 +37,37 @@ defaults:
     shell: bash
 
 jobs:
+  # Does this PR change anything besides docs/ and Markdown? Any error
+  # answers yes, so a broken check runs the full suite instead of
+  # skipping it.
+  changes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - id: diff
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          code=true
+          if [ "${{ github.event_name }}" = pull_request ] &&
+             files=$(gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename') &&
+             [ -n "$files" ] &&
+             ! printf '%s\n' "$files" | grep -qvE '^docs/|\.md$'; then
+            code=false
+          fi
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "code changed: $code"
+
   gates:
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    needs: changes
+    if: needs.changes.outputs.code == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -88,7 +117,8 @@ jobs:
   # The whole suite once on each engine. Skipped on main after a merge:
   # the PR head it merged already passed.
   test:
-    if: github.event_name != 'push' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)
+    needs: changes
+    if: needs.changes.outputs.code == 'true' && github.event_name != 'push' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     services:
