@@ -10,3 +10,4 @@
 More guides are on the website at [affiliatetracking.co/docs](https://affiliatetracking.co/docs).
 
 [Back to the README](../README.md)
+
