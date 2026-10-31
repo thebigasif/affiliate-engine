@@ -9,8 +9,8 @@ One binary, one database file, zero runtime dependencies. CGO-free — the same 
 
 Prebuilt artifacts: every `v*` tag publishes verified per-architecture
 binaries + checksums under
-[Releases](https://github.com/thebigasif/affiliate-engine/releases)
-and a container image at `ghcr.io/thebigasif/affiliate-engine:<tag>`
+[Releases](https://github.com/thebigasif/affiliate-tracking/releases)
+and a container image at `ghcr.io/thebigasif/affiliate-tracking:<tag>`
 (each release pulls and runs its own image as a smoke test).
 
 The image runs as the distroless `nonroot` user (uid 65532); `/data` is
@@ -296,7 +296,7 @@ per detection rule the engine can fire.
       -p 8080:8080 -v ae-demo-data:/data \
       -e AE_DEMO=1 -e AE_PUBLIC_URL=https://try.affiliatetracking.co \
       -e AE_TRUSTED_PROXIES=<your proxy CIDRs> \
-      ghcr.io/thebigasif/affiliate-engine:<tag>
+      ghcr.io/thebigasif/affiliate-tracking:<tag>
 
 - **`AE_DEMO=1`**: the dashboard opens with no key prompt, on the public
   key `demo` (a read-only admin), under a "Live demo" banner. Every
