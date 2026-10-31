@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/thebigasif/affiliate-engine/internal/apikeys"
 	"github.com/thebigasif/affiliate-engine/internal/ids"
 	"github.com/thebigasif/affiliate-engine/internal/ledger"
 	"github.com/thebigasif/affiliate-engine/internal/plan"
@@ -288,8 +289,16 @@ func (a *api) handleAffiliateUpdate(w http.ResponseWriter, r *http.Request, id i
 			apiError(w, http.StatusBadRequest, "status must be active or frozen")
 			return
 		}
-		// A removed (erased) partner stays removed.
-		res, err := a.db.ExecContext(ctx(r),
+		// A removed (erased) partner stays removed. Pausing also revokes
+		// the partner's API keys in the same transaction; resuming does
+		// not restore them (the operator issues a new key).
+		tx, err := a.db.BeginTx(ctx(r), nil)
+		if err != nil {
+			apiError(w, http.StatusInternalServerError, "update failed")
+			return
+		}
+		defer tx.Rollback()
+		res, err := tx.ExecContext(ctx(r),
 			`UPDATE affiliates SET status = ? WHERE id = ? AND status IN ('active','frozen')`, st, id)
 		if err != nil {
 			apiError(w, http.StatusInternalServerError, "update failed")
@@ -297,6 +306,16 @@ func (a *api) handleAffiliateUpdate(w http.ResponseWriter, r *http.Request, id i
 		}
 		if n, _ := res.RowsAffected(); n != 1 {
 			apiError(w, http.StatusNotFound, "no such partner (or removed)")
+			return
+		}
+		if st == "frozen" {
+			if _, err := apikeys.RevokeAffiliate(ctx(r), tx, id); err != nil {
+				apiError(w, http.StatusInternalServerError, "update failed")
+				return
+			}
+		}
+		if err := tx.Commit(); err != nil {
+			apiError(w, http.StatusInternalServerError, "update failed")
 			return
 		}
 	}

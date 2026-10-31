@@ -104,7 +104,10 @@ func TestStoreAndAuthenticateRoundtrip(t *testing.T) {
 		t.Fatalf("identity=%+v", idn)
 	}
 
-	// Affiliate scope roundtrip.
+	// Affiliate scope roundtrip (the affiliate must exist and be active).
+	if _, err := h.DB.Exec(`INSERT INTO affiliates (id, email) VALUES (7, 'aff7@x.test')`); err != nil {
+		t.Fatal(err)
+	}
 	affKey, err := Store(ctx, h.DB, "aff7", AffiliateScope(7))
 	if err != nil {
 		t.Fatal(err)
@@ -140,6 +143,9 @@ func TestStoreAndAuthenticateRoundtrip(t *testing.T) {
 func TestRevokeBlocksAuthentication(t *testing.T) {
 	ctx := context.Background()
 	h := openKeysDB(t)
+	if _, err := h.DB.Exec(`INSERT INTO affiliates (id, email) VALUES (1, 'aff1@x.test')`); err != nil {
+		t.Fatal(err)
+	}
 
 	key, err := Store(ctx, h.DB, "temp", AffiliateScope(1))
 	if err != nil {
@@ -191,5 +197,66 @@ func TestUniquenessGuard(t *testing.T) {
 	}
 	if n != 10 {
 		t.Fatalf("stored=%d want 10", n)
+	}
+}
+
+// An affiliate key authenticates only while its affiliate is active.
+// Frozen, removed and unknown affiliates are refused; admin keys are not
+// tied to any affiliate and keep working.
+func TestAuthenticateRequiresActiveAffiliate(t *testing.T) {
+	ctx := context.Background()
+	h := openKeysDB(t)
+	if _, err := h.DB.Exec(`INSERT INTO affiliates (id, email, status) VALUES
+		(1, 'active@x.test', 'active'), (2, 'frozen@x.test', 'frozen'), (3, 'removed@x.test', 'removed')`); err != nil {
+		t.Fatal(err)
+	}
+	store := func(scope string) string {
+		t.Helper()
+		k, err := Store(ctx, h.DB, scope, scope)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return k
+	}
+	if _, err := Authenticate(ctx, h.DB, store(AffiliateScope(1))); err != nil {
+		t.Fatalf("active affiliate key refused: %v", err)
+	}
+	for _, id := range []int64{2, 3, 99} {
+		if _, err := Authenticate(ctx, h.DB, store(AffiliateScope(id))); err != ErrUnauthorized {
+			t.Fatalf("affiliate %d key: err=%v want ErrUnauthorized", id, err)
+		}
+	}
+	if _, err := Authenticate(ctx, h.DB, store(ScopeAdmin)); err != nil {
+		t.Fatalf("admin key refused: %v", err)
+	}
+}
+
+// RevokeAffiliate revokes only that affiliate's live keys.
+func TestRevokeAffiliate(t *testing.T) {
+	ctx := context.Background()
+	h := openKeysDB(t)
+	if _, err := h.DB.Exec(`INSERT INTO affiliates (id, email) VALUES (1, 'a1@x.test'), (2, 'a2@x.test')`); err != nil {
+		t.Fatal(err)
+	}
+	k1a, _ := Store(ctx, h.DB, "a", AffiliateScope(1))
+	k1b, _ := Store(ctx, h.DB, "b", AffiliateScope(1))
+	k2, _ := Store(ctx, h.DB, "c", AffiliateScope(2))
+	admin, _ := Store(ctx, h.DB, "d", ScopeAdmin)
+	n, err := RevokeAffiliate(ctx, h.DB, 1)
+	if err != nil || n != 2 {
+		t.Fatalf("revoked=%d err=%v want 2", n, err)
+	}
+	for _, k := range []string{k1a, k1b} {
+		if _, err := Authenticate(ctx, h.DB, k); err == nil {
+			t.Fatal("revoked affiliate key accepted")
+		}
+	}
+	for _, k := range []string{k2, admin} {
+		if _, err := Authenticate(ctx, h.DB, k); err != nil {
+			t.Fatalf("unrelated key refused: %v", err)
+		}
+	}
+	if n, err := RevokeAffiliate(ctx, h.DB, 1); err != nil || n != 0 {
+		t.Fatalf("second revoke=%d err=%v want 0", n, err)
 	}
 }

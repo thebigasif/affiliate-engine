@@ -4,10 +4,24 @@ import (
 	"bytes"
 	"encoding/csv"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 )
+
+// portalSession signs a partner in to the portal and returns the session
+// token (sent as a bearer token, like the portal's API calls).
+func portalSession(t *testing.T, f *apiFixture, affID int64) string {
+	t.Helper()
+	tok := "aps_" + strings.Repeat(fmt.Sprintf("%02x", affID), 32)
+	if _, err := f.db.DB.Exec(`INSERT INTO affiliate_sessions (token_hash, affiliate_id, expires_at) VALUES (?, ?, ?)`,
+		hashToken(tok), affID, time.Now().UTC().Add(time.Hour).Format(time.RFC3339)); err != nil {
+		t.Fatal(err)
+	}
+	return tok
+}
 
 func putPayoutDetails(t *testing.T, f *apiFixture, key, body string) (int, map[string]any) {
 	t.Helper()
@@ -29,6 +43,8 @@ func putPayoutDetails(t *testing.T, f *apiFixture, key, body string) (int, map[s
 // payout list and PayPal file use it.
 func TestPayoutDetails_SaveShowAndExport(t *testing.T) {
 	f := setupAPI(t)
+	// Only a portal session changes payout details (an API key reads them).
+	sess1 := portalSession(t, f, 1)
 
 	// Nothing saved yet.
 	if code, m := getJSON(t, f.srv.URL+"/api/v1/affiliate/payout-details", f.aff1Key); code != 200 || m["payout_details"] != nil {
@@ -41,11 +57,11 @@ func TestPayoutDetails_SaveShowAndExport(t *testing.T) {
 		`{"method":"bank","bank":"   "}`,
 		`{"method":"crypto","paypal_email":"a@b.co"}`,
 	} {
-		if code, m := putPayoutDetails(t, f, f.aff1Key, bad); code != 400 {
+		if code, m := putPayoutDetails(t, f, sess1, bad); code != 400 {
 			t.Fatalf("%s accepted: %d %v", bad, code, m)
 		}
 	}
-	code, m := putPayoutDetails(t, f, f.aff1Key, `{"method":"paypal","paypal_email":" Jo.Pay@Example.com ","bank":"ignored"}`)
+	code, m := putPayoutDetails(t, f, sess1, `{"method":"paypal","paypal_email":" Jo.Pay@Example.com ","bank":"ignored"}`)
 	if code != 200 {
 		t.Fatalf("save: %d %v", code, m)
 	}
@@ -94,7 +110,7 @@ func TestPayoutDetails_SaveShowAndExport(t *testing.T) {
 	}
 
 	// Switching to bank keeps only the bank details.
-	if code, m := putPayoutDetails(t, f, f.aff1Key, `{"method":"bank","bank":"Jo Bloggs\nIBAN GB00 0000 1234\nMonzo","paypal_email":"x@y.co"}`); code != 200 {
+	if code, m := putPayoutDetails(t, f, sess1, `{"method":"bank","bank":"Jo Bloggs\nIBAN GB00 0000 1234\nMonzo","paypal_email":"x@y.co"}`); code != 200 {
 		t.Fatalf("bank: %d %v", code, m)
 	}
 	_, m = getJSON(t, f.srv.URL+"/api/v1/admin/affiliates", f.adminKey)

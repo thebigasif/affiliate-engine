@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/thebigasif/affiliate-engine/internal/apikeys"
 	"github.com/thebigasif/affiliate-engine/internal/db"
 	"github.com/thebigasif/affiliate-engine/internal/fraud"
 )
@@ -345,7 +346,16 @@ func TestFraud_CouponHijackProgramAndThreshold(t *testing.T) {
 	}
 
 	// Default threshold (3) in the right program: fires and freezes the
-	// coupon owner (2), never the customers' bound affiliate (3).
+	// coupon owner (2), never the customers' bound affiliate (3). The
+	// owner's API keys are revoked with the freeze; the victim's stay.
+	ownerKey, err := apikeys.Store(ctx, h.DB, "owner", apikeys.AffiliateScope(2))
+	if err != nil {
+		t.Fatal(err)
+	}
+	victimKey, err := apikeys.Store(ctx, h.DB, "victim", apikeys.AffiliateScope(3))
+	if err != nil {
+		t.Fatal(err)
+	}
 	e.SetCouponHijackThreshold(0)
 	vs, err = e.Evaluate(ctx, fraud.Query{AffiliateID: 2, ProgramID: 7, CouponCode: "LEAK", Now: now})
 	if err != nil {
@@ -365,6 +375,12 @@ func TestFraud_CouponHijackProgramAndThreshold(t *testing.T) {
 	h.DB.QueryRow(`SELECT status FROM affiliates WHERE id = 3`).Scan(&victim)
 	if owner != "frozen" || victim != "active" {
 		t.Fatalf("freeze landed wrong: owner=%s victim=%s", owner, victim)
+	}
+	var ownerRevoked, victimRevoked sql.NullString
+	h.DB.QueryRow(`SELECT revoked_at FROM api_keys WHERE key_hash = ?`, apikeys.HashKey(ownerKey)).Scan(&ownerRevoked)
+	h.DB.QueryRow(`SELECT revoked_at FROM api_keys WHERE key_hash = ?`, apikeys.HashKey(victimKey)).Scan(&victimRevoked)
+	if !ownerRevoked.Valid || victimRevoked.Valid {
+		t.Fatalf("key revocation landed wrong: owner revoked=%v victim revoked=%v", ownerRevoked.Valid, victimRevoked.Valid)
 	}
 }
 

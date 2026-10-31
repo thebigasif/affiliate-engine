@@ -55,6 +55,13 @@ type Event struct {
 	// recorded on the clawback row so the affiliate sees why a
 	// commission was reduced (PRD 6.7). Empty for purchases.
 	Reason string `json:",omitempty"`
+
+	// PaymentKeys are the provider ids of the money this event pays for
+	// (a Stripe PaymentIntent, invoice or charge). The credit claims them
+	// in its own transaction (payment_claims), so a second event for the
+	// same payment is recorded and skipped with ErrPaymentCredited. Empty
+	// = no claim (every event is its own payment).
+	PaymentKeys []string `json:",omitempty"`
 }
 
 // Engine computes commissions and drives the ledger + status lifecycle.
@@ -133,6 +140,10 @@ func (e *Engine) SetClock(now func() time.Time) { e.now = now }
 var (
 	ErrAlreadyProcessed = fmt.Errorf("commissions: event already processed")
 	ErrNoAttribution    = fmt.Errorf("commissions: no attribution for event")
+	// ErrPaymentCredited: another event already credited the payment this
+	// event carries (Event.PaymentKeys). Recorded and ACKed like the
+	// other skips.
+	ErrPaymentCredited = fmt.Errorf("commissions: payment already credited by another event")
 )
 
 // maxCreditAttempts bounds the per-attempt credit idem-key pairs a
@@ -327,6 +338,17 @@ func (e *Engine) purchaseTx(ctx context.Context, tx *ledger.Tx, ev Event) (credi
 		}
 	}
 
+	// 4b) One credit per payment: another event that carried the same
+	// payment and credited it ends this one. Its claim is committed, so
+	// this read sees it whichever process wrote it.
+	if by, err := paymentClaimedBy(ctx, tx, ev); err != nil {
+		return credit{}, err
+	} else if by != "" {
+		log.Printf("commissions: %s:%s: payment %v already credited by %s (skipped)",
+			ev.Source, ev.ExternalID, ev.PaymentKeys, by)
+		return credit{skip: ErrPaymentCredited}, markProcessed(ctx, tx, ev, "payment_already_credited")
+	}
+
 	// 5) Lifetime binding (once per program+customer, immutable).
 	if ev.CustomerExtID != "" {
 		if err := bindCustomer(ctx, tx, ev.CustomerExtID, affiliateID, ev.CampaignID, boundMethod); err != nil {
@@ -406,6 +428,11 @@ func (e *Engine) purchaseTx(ctx context.Context, tx *ledger.Tx, ev Event) (credi
 		boundMethod, ev.CouponCode, ev.CustomerExtID, ev.Country, ev.AmountMinor,
 		nullableStr(ev.ClickID), nullableStr(ev.OrderID)).Scan(&c.commissionID); err != nil {
 		return credit{}, fmt.Errorf("commissions: insert: %w", err)
+	}
+
+	// 7b) Claim the payment with the credit (see 4b).
+	if err := claimPayment(ctx, tx, ev, c.commissionID); err != nil {
+		return credit{}, err
 	}
 
 	// 8) Aggregate update (on-write, batch-safe upsert).
@@ -1383,6 +1410,56 @@ func markProcessedOK(ctx context.Context, q dbtx, ev Event) error {
 		`UPDATE raw_events SET processed_at = ? WHERE source = ? AND external_event_id = ?`,
 		time.Now().UTC(), ev.Source, ev.ExternalID); err != nil {
 		return fmt.Errorf("commissions: mark processed: %w", err)
+	}
+	return nil
+}
+
+// paymentClaimedBy returns the event that claimed any of ev's payment
+// keys ("" = none).
+func paymentClaimedBy(ctx context.Context, q dbtx, ev Event) (string, error) {
+	for _, k := range ev.PaymentKeys {
+		if k == "" {
+			continue
+		}
+		var by string
+		err := q.QueryRowContext(ctx,
+			`SELECT event_id FROM payment_claims WHERE source = ? AND payment_key = ?`,
+			ev.Source, k).Scan(&by)
+		if errors.Is(err, sql.ErrNoRows) {
+			continue
+		}
+		if err != nil {
+			return "", fmt.Errorf("commissions: payment claim lookup: %w", err)
+		}
+		return by, nil
+	}
+	return "", nil
+}
+
+// claimPayment records ev's payment keys for commissionID. A key another
+// transaction claimed since paymentClaimedBy looked (a rival process) is
+// an error: this credit rolls back, and the provider's retry finds the
+// claim and skips.
+func claimPayment(ctx context.Context, q dbtx, ev Event, commissionID int64) error {
+	seen := make(map[string]bool, len(ev.PaymentKeys))
+	for _, k := range ev.PaymentKeys {
+		if k == "" || seen[k] {
+			continue
+		}
+		seen[k] = true
+		res, err := q.ExecContext(ctx, `
+			INSERT INTO payment_claims (source, payment_key, event_id, commission_id)
+			VALUES (?, ?, ?, ?)
+			ON CONFLICT(source, payment_key) DO NOTHING`,
+			ev.Source, k, ev.ExternalID, commissionID)
+		if err != nil {
+			return fmt.Errorf("commissions: payment claim: %w", err)
+		}
+		if n, err := res.RowsAffected(); err != nil {
+			return fmt.Errorf("commissions: payment claim: %w", err)
+		} else if n != 1 {
+			return fmt.Errorf("commissions: %s:%s: payment %s claimed concurrently (retry)", ev.Source, ev.ExternalID, k)
+		}
 	}
 	return nil
 }

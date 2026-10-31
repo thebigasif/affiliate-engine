@@ -225,14 +225,49 @@ func (e *Engine) apply(ctx context.Context, vs []Verdict, q Query) error {
 		}
 	}
 	for _, code := range freezeCoupons {
-		if _, err := Conn(ctx, e.db).ExecContext(ctx, `
-			UPDATE affiliates SET status = 'frozen'
-			WHERE status = 'active' AND id IN (SELECT affiliate_id FROM coupons WHERE code = ?)`,
-			code); err != nil {
-			errs = append(errs, fmt.Errorf("fraud: freeze coupon owner: %w", err))
+		frozen, err := e.freezeCouponOwners(ctx, code)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		// A frozen owner's API keys are revoked with the freeze, so a
+		// later unfreeze does not bring them back. The scope string is
+		// apikeys.AffiliateScope; the package is not imported, to keep it
+		// out of the Shopify app's import graph (AR-8).
+		for _, id := range frozen {
+			if _, err := Conn(ctx, e.db).ExecContext(ctx, `
+				UPDATE api_keys SET revoked_at = ? WHERE scope = ? AND revoked_at IS NULL`,
+				time.Now().UTC().Format(time.RFC3339), fmt.Sprintf("affiliate:%d", id)); err != nil {
+				errs = append(errs, fmt.Errorf("fraud: revoke frozen owner keys: %w", err))
+			}
 		}
 	}
 	return errors.Join(errs...)
+}
+
+// freezeCouponOwners freezes the active owners of one coupon and returns
+// the ids it froze.
+func (e *Engine) freezeCouponOwners(ctx context.Context, code string) ([]int64, error) {
+	rows, err := Conn(ctx, e.db).QueryContext(ctx, `
+		UPDATE affiliates SET status = 'frozen'
+		WHERE status = 'active' AND id IN (SELECT affiliate_id FROM coupons WHERE code = ?)
+		RETURNING id`, code)
+	if err != nil {
+		return nil, fmt.Errorf("fraud: freeze coupon owner: %w", err)
+	}
+	defer rows.Close()
+	var frozen []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("fraud: freeze coupon owner: %w", err)
+		}
+		frozen = append(frozen, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("fraud: freeze coupon owner: %w", err)
+	}
+	return frozen, nil
 }
 
 // HoldCommission places a payment hold on one pending/approved

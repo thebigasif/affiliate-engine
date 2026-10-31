@@ -322,23 +322,27 @@ func (a *PaddleAdapter) handleAdjustment(ctx context.Context, env paddleEnvelope
 	// Refund attribution: the purchase linked the commission to both the
 	// event id AND the transaction id (keys). Try the transaction id — the
 	// adjustment carries it directly.
+	ev := commissions.Event{
+		Source: "paddle", ExternalID: refundKey, EventType: "refund",
+		Currency: currency, OccurredAt: eventTime(env.OccurredAt),
+	}
 	commissionID, found, err := a.Store.FindCommission(ctx, "paddle", adj.TransactionID)
 	if err != nil {
 		return err
 	}
 	if !found {
-		return a.Store.RecordRefundMiss(ctx, "paddle", refundKey,
-			[]string{adj.TransactionID}, refunded, currency)
+		if err := a.Store.RecordRefundMiss(ctx, "paddle", refundKey,
+			[]string{adj.TransactionID}, refunded, currency); err != nil {
+			return err
+		}
+		// The purchase may still come: it applies the held refund.
+		return holdMissedRefund(ctx, a.Engine, a.Store, heldRefund{Event: ev, Refunded: refunded}, adj.TransactionID)
 	}
 	// Proration base = the SALE gross the commission was computed from
 	// (refunded is sale money). Legacy rows without gross fall back to the
 	// commission amount, then to the refunded amount (full clawback).
 	originalAmount := refundBase(ctx, a.Store, commissionID, refunded)
 
-	ev := commissions.Event{
-		Source: "paddle", ExternalID: refundKey, EventType: "refund",
-		Currency: currency, OccurredAt: eventTime(env.OccurredAt),
-	}
 	err = a.Engine.ProcessRefund(ctx, ev, commissionID, refunded, originalAmount)
 	if errors.Is(err, commissions.ErrAlreadyProcessed) {
 		return nil // replayed adjustment: success no-op
@@ -388,7 +392,7 @@ func (a *PaddleAdapter) resolveAndPurchase(ctx context.Context, ev *commissions.
 	case err != nil:
 		return err
 	}
-	return linkCommission(ctx, a.Store, *ev, cid, 0, keys...)
+	return linkCommission(ctx, a.Engine, a.Store, *ev, cid, 0, keys...)
 }
 
 // verifySignature checks ts;h1=[;h1=...] per Paddle Billing spec. Every h1

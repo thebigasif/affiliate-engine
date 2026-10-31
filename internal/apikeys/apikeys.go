@@ -87,6 +87,9 @@ type Identity struct {
 	Scope       string
 	AffiliateID int64 // valid when scope is affiliate
 	IsAdmin     bool
+	// Portal: a portal session signed in, not an API key. Only a portal
+	// session may change where the affiliate is paid.
+	Portal bool
 }
 
 // Authenticate verifies a bearer key and returns the identity. Updates
@@ -116,6 +119,17 @@ func Authenticate(ctx context.Context, db *sql.DB, key string) (*Identity, error
 	id := &Identity{Scope: scope, IsAdmin: IsAdminScope(scope)}
 	if affID, ok := ScopeAffiliateID(scope); ok {
 		id.AffiliateID = affID
+		// An affiliate key works only while its affiliate is active, the
+		// same rule portal sessions follow. A frozen, removed or missing
+		// affiliate gets no access through a key.
+		var status string
+		err := db.QueryRowContext(ctx, `SELECT status FROM affiliates WHERE id = ?`, affID).Scan(&status)
+		if err == sql.ErrNoRows || (err == nil && status != "active") {
+			return nil, ErrUnauthorized
+		}
+		if err != nil {
+			return nil, fmt.Errorf("apikeys: affiliate status: %w", err)
+		}
 	}
 	// last_used_at: write ONLY when stale (>60s). The naive always-write
 	// version took SQLite's single write lock on EVERY authenticated
@@ -144,6 +158,25 @@ func staleLastUsed(s string, max time.Duration) bool {
 
 // ErrUnauthorized is returned for missing/unknown/revoked keys.
 var ErrUnauthorized = fmt.Errorf("apikeys: unauthorized")
+
+// Execer is the part of *sql.DB and *sql.Tx that RevokeAffiliate needs.
+type Execer interface {
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+}
+
+// RevokeAffiliate revokes every live key scoped to one affiliate. Freezing
+// or erasing an affiliate calls it, so unfreezing never brings an old key
+// back: the operator issues a new one. Admin keys are never touched.
+func RevokeAffiliate(ctx context.Context, q Execer, affiliateID int64) (int64, error) {
+	res, err := q.ExecContext(ctx, `
+		UPDATE api_keys SET revoked_at = ? WHERE scope = ? AND revoked_at IS NULL`,
+		time.Now().UTC().Format(time.RFC3339), AffiliateScope(affiliateID))
+	if err != nil {
+		return 0, fmt.Errorf("apikeys: revoke affiliate %d: %w", affiliateID, err)
+	}
+	n, _ := res.RowsAffected()
+	return n, nil
+}
 
 // Revoke marks a key revoked by prefix or id.
 func Revoke(ctx context.Context, db *sql.DB, id int64) error {

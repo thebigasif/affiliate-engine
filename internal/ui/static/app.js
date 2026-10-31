@@ -858,7 +858,7 @@ function renderPayouts(out){
   $("po-empty").style.display = list.length?"none":"block";
   $("po-body").innerHTML = list.map(p=>
     `<tr><td>${partnerCell(p.affiliate_id, p.email)}</td><td class="num">${money(p.amount_cents, p.currency)}</td>`+
-    `<td>${esc(METHODS[p.method]||p.method)}${p.exported_at?'<span class="sub">In a downloaded CSV</span>':""}${p.attention?`<span class="sub" style="color:var(--red)">${esc(p.attention)}</span>`:""}</td>`+
+    `<td>${esc(METHODS[p.method]||p.method)}${p.exported_at?'<span class="sub">In a downloaded CSV</span>':""}${p.attention?`<span class="sub" style="color:var(--red)">${esc(p.attention)}</span>`:""}${p.held?`<span class="sub" style="color:var(--red)">${esc(p.held)}</span>`:""}</td>`+
     `<td class="muted">${payToText(p.pay_to, p.pay_to_asked_at)}</td>`+
     `<td class="muted">${day(p.created_at)}</td><td class="nowrap"><button class="mini go" data-pay="${p.id}" data-amt="${p.amount_cents}" data-cur="${esc(p.currency)}" data-email="${esc(p.email)}" data-payto="${esc(p.pay_to||"")}">Mark as paid</button></td></tr>`
   ).join("");
@@ -1380,7 +1380,8 @@ $("pt-save").addEventListener("click", ()=>saveWith($("pt-save"), $("pt-out"), a
   const d = (await api("/api/v1/affiliate/payout-details", {method:"PUT", body: JSON.stringify(body)})).payout_details || {};
   if(d.paypal_email) $("pt-paypal").value = d.paypal_email;
   if(d.wise_email) $("pt-wise").value = d.wise_email;
-  return method==="bank" ? "Saved. Your bank details are stored encrypted" : `Saved. You'll be paid to ${d.paypal_email||d.wise_email}`;
+  const wait = d.cooling_until ? `. For your safety, payouts to the new details wait until ${day(d.cooling_until)}, and we emailed you about the change` : "";
+  return (method==="bank" ? "Saved. Your bank details are stored encrypted" : `Saved. You'll be paid to ${d.paypal_email||d.wise_email}`) + wait;
 }));
 watchUnsaved($("payto"), $("pt-out"));
 

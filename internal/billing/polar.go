@@ -230,7 +230,7 @@ func (a *PolarAdapter) handlePaid(ctx context.Context, env polarEnvelope) error 
 		return err
 	}
 	// No refund basis: Polar's refunded_amount excludes tax, like net_amount.
-	return linkCommission(ctx, a.Store, ev, cid, 0, o.ID)
+	return linkCommission(ctx, a.Engine, a.Store, ev, cid, 0, o.ID)
 }
 
 // bind writes the customer's lifetime binding from the checkout token.
@@ -266,17 +266,22 @@ func (a *PolarAdapter) handleRefunded(ctx context.Context, env polarEnvelope) er
 	}
 	cur := strings.ToUpper(o.Currency)
 	refundKey := "order.refunded:" + o.ID + ":" + strconv.FormatInt(refunded, 10)
+	ev := commissions.Event{Source: "polar", ExternalID: refundKey, EventType: "refund", Currency: cur, OccurredAt: eventTime(env.Timestamp)}
 	commissionID, found, err := a.Store.FindCommission(ctx, "polar", o.ID)
 	if err != nil {
 		return err
 	}
 	if !found {
-		return a.Store.RecordRefundMiss(ctx, "polar", refundKey, []string{o.ID}, refunded, cur)
+		if err := a.Store.RecordRefundMiss(ctx, "polar", refundKey, []string{o.ID}, refunded, cur); err != nil {
+			return err
+		}
+		// The purchase may still come: it applies the held refund.
+		return holdMissedRefund(ctx, a.Engine, a.Store,
+			heldRefund{Event: ev, Refunded: refunded, Original: base, Cumulative: true}, o.ID)
 	}
 	if base <= 0 {
 		base = refundBase(ctx, a.Store, commissionID, refunded)
 	}
-	ev := commissions.Event{Source: "polar", ExternalID: refundKey, EventType: "refund", Currency: cur, OccurredAt: eventTime(env.Timestamp)}
 	if cr, ok := a.Engine.(CumulativeRefunder); ok {
 		err = cr.ProcessRefundCumulative(ctx, ev, commissionID, refunded, base)
 	} else {

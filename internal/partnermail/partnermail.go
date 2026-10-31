@@ -127,6 +127,12 @@ func (s *Sink) Deliver(ctx context.Context, ev outbox.Event) error {
 			return s.recap(ctx, e)
 		}
 		return nil
+	case TopicPayoutDetailsChanged:
+		var e PayoutDetailsChange
+		if err := json.Unmarshal(ev.Payload, &e); err != nil || e.AffiliateID <= 0 {
+			return nil
+		}
+		return s.payoutDetailsChanged(ctx, e)
 	case TopicPayoutPaid:
 		var e payoutEvent
 		if err := json.Unmarshal(ev.Payload, &e); err != nil || e.PayoutID <= 0 {

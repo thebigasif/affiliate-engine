@@ -360,7 +360,7 @@ func (a *RecurlyAdapter) resolveAndPurchase(ctx context.Context, ev *commissions
 	case err != nil:
 		return err
 	}
-	return linkCommission(ctx, a.Store, *ev, cid, inv.TotalInCents, inv.UUID, ref)
+	return linkCommission(ctx, a.Engine, a.Store, *ev, cid, inv.TotalInCents, inv.UUID, ref)
 }
 
 // handleRefund maps refund/void transactions to clawbacks. kind prefixes
@@ -376,19 +376,6 @@ func (a *RecurlyAdapter) handleRefund(ctx context.Context, n rxNotification, kin
 		return nil
 	}
 	ref := tx.InvoiceNumberPrefix + strconv.FormatInt(tx.InvoiceNumber, 10)
-	commissionID, found, err := a.Store.FindCommission(ctx, "recurly", tx.InvoiceID, ref)
-	if err != nil {
-		return err
-	}
-	if !found {
-		return a.Store.RecordRefundMiss(ctx, "recurly",
-			kind+":"+tx.ID, []string{tx.InvoiceID, ref}, refunded, "")
-	}
-	// Proration base = the invoice total recorded at credit time (refund
-	// transactions include tax, like it); older commissions, credited on
-	// that total, use their gross. Legacy rows without gross fall back to
-	// the commission amount, then to the refunded amount (full clawback).
-	original := refundBase(ctx, a.Store, commissionID, refunded)
 	occurred, ok := rxTime(tx.Date)
 	if !ok {
 		occurred = time.Now().UTC()
@@ -399,6 +386,23 @@ func (a *RecurlyAdapter) handleRefund(ctx context.Context, n rxNotification, kin
 		EventType:  "refund",
 		OccurredAt: occurred,
 	}
+	commissionID, found, err := a.Store.FindCommission(ctx, "recurly", tx.InvoiceID, ref)
+	if err != nil {
+		return err
+	}
+	if !found {
+		if err := a.Store.RecordRefundMiss(ctx, "recurly",
+			kind+":"+tx.ID, []string{tx.InvoiceID, ref}, refunded, ""); err != nil {
+			return err
+		}
+		// The purchase may still come: it applies the held refund.
+		return holdMissedRefund(ctx, a.Engine, a.Store, heldRefund{Event: ev, Refunded: refunded}, tx.InvoiceID, ref)
+	}
+	// Proration base = the invoice total recorded at credit time (refund
+	// transactions include tax, like it); older commissions, credited on
+	// that total, use their gross. Legacy rows without gross fall back to
+	// the commission amount, then to the refunded amount (full clawback).
+	original := refundBase(ctx, a.Store, commissionID, refunded)
 	err = a.Engine.ProcessRefund(ctx, ev, commissionID, refunded, original)
 	if errors.Is(err, commissions.ErrAlreadyProcessed) {
 		return nil // replayed refund notification: success no-op
