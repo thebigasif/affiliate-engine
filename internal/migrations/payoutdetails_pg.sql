@@ -5,3 +5,6 @@ CREATE TABLE IF NOT EXISTS affiliate_payout_details (
     sealed       BYTEA NOT NULL,
     updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Cooling period after a change. See payoutdetails_sqlite.sql.
+ALTER TABLE affiliate_payout_details ADD COLUMN IF NOT EXISTS cooling_until TIMESTAMPTZ;

@@ -25,7 +25,7 @@ Admin routes need an admin API key (`affiliate-engine keygen --scope admin`). Af
 | `GET /api/v1/affiliate/earnings` | affiliate/admin key | portal earnings |
 | `GET /api/v1/affiliate/ledger` | portal session or affiliate/admin key | auditable ledger view (Σ=0 proof) |
 | `GET /api/v1/affiliate/payouts` | affiliate key or portal session | the affiliate's own payouts, newest first |
-| `GET/PUT /api/v1/affiliate/payout-details` | affiliate key or portal session | where the affiliate wants to be paid (PayPal, Wise or bank; sealed at rest) |
+| `GET/PUT /api/v1/affiliate/payout-details` | GET: affiliate key or portal session; PUT: portal session only | where the affiliate wants to be paid (PayPal, Wise or bank; sealed at rest). A change to existing details holds the affiliate's payouts for 72 hours and emails them |
 | `GET /api/v1/portal/brand` | none | public branding for a domain/campaign |
 | `GET /api/v1/portal/logo` | none | the program's uploaded logo (versioned, cached) |
 | `POST /api/v1/admin/partners/message` | admin key | email program news to every active partner who hasn't unsubscribed (`{subject, body}`); needs `AE_MAIL_PROVIDER` |

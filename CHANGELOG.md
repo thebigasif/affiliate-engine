@@ -4,6 +4,21 @@ All notable changes to affiliate-engine. Format: Keep a Changelog; versioning: s
 
 ## [Unreleased]
 
+## [v0.6.2] - 2026-11-01
+
+A security release. Upgrade is recommended for every install. The database changes apply on start.
+
+### Security
+- **Refunds that arrive before their purchase.** Billing tools do not send events in order. A refund that arrived before its purchase found no commission and was dropped, so the commission was later paid in full. Such refunds are now held and applied when the purchase is credited, for all six billing integrations.
+- **One Stripe payment credited twice.** A Checkout with an invoice sends two events for one payment. If saving a link failed at the wrong moment, or two engine processes ran, both events could credit, and a refund then clawed back only one. The payment is now claimed inside the credit's own transaction (new `payment_claims` table), so it can credit only once.
+- **Frozen or removed affiliates kept API access.** An affiliate API key kept working after its affiliate was frozen or removed, including changing payout details. Keys now work only while the affiliate is active, and freezing an affiliate revokes its keys. Resuming the affiliate does not restore revoked keys; issue a new one.
+- **Payout detail changes were instant and silent.** Changing where an affiliate is paid now:
+  - requires a portal session (API keys get 403);
+  - writes an audit row with masked values;
+  - emails the affiliate, when mail is set up;
+  - holds that affiliate's payouts for 72 hours (a first-ever setup is not held).
+  Stored details that cannot be decrypted now block the export, instead of falling back to the login email.
+
 ## [v0.6.1] - 2026-10-31
 
 ### Changed

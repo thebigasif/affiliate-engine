@@ -236,7 +236,8 @@ func main() {
 	}
 	if mailer != nil {
 		dispatcher.Register(&partnermail.Sink{DB: h.DB, Mailer: mailer, PublicURL: os.Getenv("AE_PUBLIC_URL"), NewsKey: partnermail.DeriveNewsKey(secret)},
-			partnermail.TopicLoginLink, partnermail.TopicPayoutPaid, partnermail.TopicNews, partnermail.TopicTips, partnermail.TopicRecap, partnermail.TopicRejected)
+			partnermail.TopicLoginLink, partnermail.TopicPayoutPaid, partnermail.TopicNews, partnermail.TopicTips, partnermail.TopicRecap, partnermail.TopicRejected,
+			partnermail.TopicPayoutDetailsChanged)
 		fmt.Printf("affiliate-engine: partner emails on (%s)\n", mailCfg.Provider)
 	}
 	dispatcher.Start(ctx)

@@ -72,6 +72,7 @@ func (a *api) handlePayoutList(w http.ResponseWriter, r *http.Request) {
 		Attention   string `json:"attention"`
 		PayTo       string `json:"pay_to"`                    // where the partner asked to be paid ("" = not given)
 		PayToAsked  string `json:"pay_to_asked_at,omitempty"` // when we last emailed them to add it
+		Held        string `json:"held,omitempty"`            // why it can't be paid yet (payout details changed or unreadable)
 	}
 	out := []payout{}
 	for rows.Next() {
@@ -96,11 +97,24 @@ func (a *api) handlePayoutList(w http.ResponseWriter, r *http.Request) {
 	}
 	details := a.payToByAffiliate(r.Context(), ids)
 	asked := partnermail.PayoutDetailsAsked(r.Context(), a.db, ids)
+	held := map[int64]string{}
 	for i := range out {
 		out[i].PayTo = details[out[i].AffiliateID].PayTo()
 		if out[i].PayTo == "" {
 			out[i].PayToAsked = asked[out[i].AffiliateID]
 		}
+		if out[i].Status != "requested" || out[i].ExportedAt != "" {
+			continue
+		}
+		reason, ok := held[out[i].AffiliateID]
+		if !ok {
+			if reason, err = a.payoutHold(r.Context(), out[i].AffiliateID, false); err != nil {
+				apiError(w, http.StatusInternalServerError, "query failed")
+				return
+			}
+			held[out[i].AffiliateID] = reason
+		}
+		out[i].Held = reason
 	}
 	var next int64
 	if len(out) == limit {
@@ -138,26 +152,19 @@ func (a *api) handlePayoutExport(w http.ResponseWriter, r *http.Request) {
 	runner := a.deps.PayoutRunner
 	if runner == nil {
 		runner = payouts.NewRunner(a.db)
+		a.guardPayouts(runner)
 	}
+	// ExportPayee (guardPayouts) picks each payee: the address the partner
+	// gave for this rail, else their login email. A partner whose details
+	// are cooling or cannot be read is left out (X-Payouts-Skipped).
 	res, err := runner.ClaimForExport(r.Context(), method)
 	if err != nil {
 		apiError(w, http.StatusInternalServerError, "export failed")
 		return
 	}
-	// Pay the address the partner gave for this rail; their login email
-	// otherwise.
-	ids := make([]int64, 0, len(res.Payouts))
-	for _, p := range res.Payouts {
-		ids = append(ids, p.AffiliateID)
-	}
-	details := a.payToByAffiliate(r.Context(), ids)
 	rows := make([]export.Row, 0, len(res.Payouts))
 	for _, p := range res.Payouts {
-		email := p.Email
-		if e := details[p.AffiliateID].RailEmail(method); e != "" {
-			email = e
-		}
-		rows = append(rows, export.Row{PayoutID: p.PayoutID, Email: email, Amount: p.Amount, Currency: p.Currency})
+		rows = append(rows, export.Row{PayoutID: p.PayoutID, Email: p.Email, Amount: p.Amount, Currency: p.Currency})
 	}
 	var buf bytes.Buffer
 	if err := write(&buf, rows); err != nil {

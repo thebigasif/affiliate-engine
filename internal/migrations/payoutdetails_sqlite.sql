@@ -9,3 +9,8 @@ CREATE TABLE IF NOT EXISTS affiliate_payout_details (
     sealed       BLOB NOT NULL,
     updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- A change to existing details holds the partner's payouts until this
+-- time (RFC3339), so a stolen session or key cannot redirect money at
+-- once. NULL: not cooling (a first-ever setup never cools).
+ALTER TABLE affiliate_payout_details ADD COLUMN cooling_until TEXT;

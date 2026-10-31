@@ -104,6 +104,24 @@ func (s *SQLStore) FindCommission(ctx context.Context, source string, keys ...st
 			return p.CommissionID, true, nil
 		}
 	}
+	// No link row: the payment claim the credit wrote in its own
+	// transaction (commissions.Event.PaymentKeys) still names the
+	// commission, even when the link write after it failed.
+	for _, k := range compact(keys) {
+		var cid int64
+		err := s.db.QueryRowContext(ctx,
+			`SELECT commission_id FROM payment_claims WHERE source = ? AND payment_key = ?`,
+			source, k).Scan(&cid)
+		if err == sql.ErrNoRows {
+			continue
+		}
+		if err != nil {
+			return 0, false, fmt.Errorf("billing: payment claim lookup %s/%s: %w", source, k, err)
+		}
+		if cid > 0 {
+			return cid, true, nil
+		}
+	}
 	return 0, false, nil
 }
 

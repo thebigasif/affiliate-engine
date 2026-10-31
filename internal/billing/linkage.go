@@ -28,10 +28,12 @@ var _ CreditedFinder = (*commissions.Engine)(nil)
 // linkCommission writes refund linkage for a fresh credit: the keys a
 // later refund carries, and the refund basis (the amount charged, tax
 // included) for providers whose refunds are measured on it; 0 = none.
+// Then it applies any refund that arrived before this purchase and is
+// held under those keys (applyHeldRefunds).
 // Failure is returned, never swallowed: the webhook errors, the provider
 // retries, and the retry relinks (relinkReplay). A dropped link left a
 // commission no refund could ever claw.
-func linkCommission(ctx context.Context, st Store, ev commissions.Event, cid, basis int64, keys ...string) error {
+func linkCommission(ctx context.Context, eng ProcessPurchaser, st Store, ev commissions.Event, cid, basis int64, keys ...string) error {
 	if cid <= 0 || st == nil {
 		return nil
 	}
@@ -40,12 +42,16 @@ func linkCommission(ctx context.Context, st Store, ev commissions.Event, cid, ba
 			return fmt.Errorf("billing: link commission %d for %s/%s: %w", cid, ev.Source, ev.ExternalID, err)
 		}
 	}
-	if s := sqlStore(st); s != nil && basis > 0 {
+	s := sqlStore(st)
+	if s == nil {
+		return nil
+	}
+	if basis > 0 {
 		if err := s.recordRefundBasis(ctx, ev.Source, cid, basis); err != nil {
 			return err
 		}
 	}
-	return nil
+	return applyHeldRefunds(ctx, eng, s, ev.Source, cid, keys...)
 }
 
 // relinkReplay finishes the linkage of an already-processed purchase: the
@@ -61,7 +67,7 @@ func relinkReplay(ctx context.Context, eng ProcessPurchaser, st Store, ev commis
 	if err != nil {
 		return fmt.Errorf("billing: replay link lookup %s/%s: %w", ev.Source, ev.ExternalID, err)
 	}
-	return linkCommission(ctx, st, ev, cid, basis, keys...)
+	return linkCommission(ctx, eng, st, ev, cid, basis, keys...)
 }
 
 // sqlStore unwraps the SQL store behind st (tests wrap it); nil if none.

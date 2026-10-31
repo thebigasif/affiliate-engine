@@ -326,24 +326,28 @@ func (a *ChargebeeAdapter) handleRefund(ctx context.Context, env cbEvent) error 
 	if currency == "" {
 		currency = "USD"
 	}
+	ev := commissions.Event{
+		Source: "chargebee", ExternalID: key, EventType: "refund",
+		Currency: currency, OccurredAt: unixTime(env.OccurredAt),
+	}
 	// Find the parent via the invoice-id link (purchases link event+invoice).
 	commissionID, found, err := a.Store.FindCommission(ctx, "chargebee", invoiceID)
 	if err != nil {
 		return err
 	}
 	if !found {
-		return a.Store.RecordRefundMiss(ctx, "chargebee", key,
-			[]string{invoiceID}, refunded, currency)
+		if err := a.Store.RecordRefundMiss(ctx, "chargebee", key,
+			[]string{invoiceID}, refunded, currency); err != nil {
+			return err
+		}
+		// The purchase may still come: it applies the held refund.
+		return holdMissedRefund(ctx, a.Engine, a.Store, heldRefund{Event: ev, Refunded: refunded}, invoiceID)
 	}
 	// Proration base = the invoice total recorded at credit time (credit
 	// notes include tax, like it); older commissions, credited on that
 	// total, use their gross; legacy rows fall back to the commission
 	// amount, then the refunded amount (full clawback).
 	original := refundBase(ctx, a.Store, commissionID, refunded)
-	ev := commissions.Event{
-		Source: "chargebee", ExternalID: key, EventType: "refund",
-		Currency: currency, OccurredAt: unixTime(env.OccurredAt),
-	}
 	err = a.Engine.ProcessRefund(ctx, ev, commissionID, refunded, original)
 	if errors.Is(err, commissions.ErrAlreadyProcessed) {
 		return nil // the same credit note via the other event, or a replay
@@ -389,7 +393,7 @@ func (a *ChargebeeAdapter) resolveAndPurchase(ctx context.Context, ev *commissio
 	case err != nil:
 		return err
 	}
-	return linkCommission(ctx, a.Store, *ev, cid, basis, ev.ExternalID, invoiceID)
+	return linkCommission(ctx, a.Engine, a.Store, *ev, cid, basis, ev.ExternalID, invoiceID)
 }
 
 // verifySignature checks the legacy cb-signature header:

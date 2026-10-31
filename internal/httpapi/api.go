@@ -91,6 +91,9 @@ type APIDeps struct {
 	// Billing names the billing webhooks this engine accepts (stripe,
 	// paddle, ...), for the dashboard's setup list.
 	Billing []string
+
+	// Now is the clock for payout-details cooling periods. nil = time.Now.
+	Now func() time.Time
 }
 
 // StatsEngine is the token-analytics slice the API needs.
@@ -125,6 +128,9 @@ func NewAPIHandler(deps APIDeps) http.Handler {
 		db: deps.DB, deps: deps, rl: newRateLimiter(deps.RateLimit), stats: deps.Stats,
 		authFail:   newRateLimiter(authFailPerMin),
 		loginLinks: newLoginLinkLimiter(5 * time.Minute),
+	}
+	if deps.PayoutRunner != nil {
+		a.guardPayouts(deps.PayoutRunner)
 	}
 	mux := http.NewServeMux()
 
@@ -236,7 +242,7 @@ func (a *api) aff(next func(w http.ResponseWriter, r *http.Request, idn *apikeys
 		bt := bearerToken(r)
 		if !a.deps.Demo && (bt == "" || strings.HasPrefix(bt, "aps_")) {
 			if affID := a.PortalAuth(r.Context(), r); affID != 0 {
-				next(w, r, &apikeys.Identity{AffiliateID: affID, Scope: "affiliate:" + fmt.Sprint(affID)})
+				next(w, r, &apikeys.Identity{AffiliateID: affID, Scope: "affiliate:" + fmt.Sprint(affID), Portal: true})
 				return
 			}
 		}
@@ -1265,6 +1271,16 @@ func (a *api) handlePayoutApprove(w http.ResponseWriter, r *http.Request) {
 	}
 	if body.PayoutID <= 0 {
 		apiError(w, http.StatusBadRequest, "payout_id required")
+		return
+	}
+	// A payout not yet in a PayPal or Wise file waits while the partner's
+	// payout details are in their cooling period: the owner would pay the
+	// new destination by hand.
+	if reason, err := a.approveHold(r.Context(), body.PayoutID); err != nil {
+		apiError(w, http.StatusInternalServerError, "approve failed")
+		return
+	} else if reason != "" {
+		apiError(w, http.StatusUnprocessableEntity, reason)
 		return
 	}
 	err := a.deps.PayoutRunner.Approve(r.Context(), body.PayoutID, a.deps.PayoutExecutor)

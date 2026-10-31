@@ -380,25 +380,30 @@ func (a *LemonSqueezyAdapter) handleOrderRefunded(ctx context.Context, env lsEnv
 // cumulative refunded total. total is the sale total (tax included, like
 // refunded_amount) used for proration.
 func (a *LemonSqueezyAdapter) clawCumulative(ctx context.Context, refundKey, currency string, occurred time.Time, refunded, total int64, keys ...string) error {
-	commissionID, found, err := a.Store.FindCommission(ctx, "lemonsqueezy", keys...)
-	if err != nil {
-		return err
-	}
-	if !found {
-		return a.Store.RecordRefundMiss(ctx, "lemonsqueezy", refundKey, keys, refunded, currency)
-	}
-	// Proration base: the sale total (the sale gross); when absent, the
-	// commission's stored gross (refundBase), else the refunded amount.
-	original := total
-	if original <= 0 {
-		original = refundBase(ctx, a.Store, commissionID, refunded)
-	}
 	ev := commissions.Event{
 		Source:     "lemonsqueezy",
 		ExternalID: refundKey,
 		EventType:  "refund",
 		Currency:   currency,
 		OccurredAt: occurred,
+	}
+	commissionID, found, err := a.Store.FindCommission(ctx, "lemonsqueezy", keys...)
+	if err != nil {
+		return err
+	}
+	if !found {
+		if err := a.Store.RecordRefundMiss(ctx, "lemonsqueezy", refundKey, keys, refunded, currency); err != nil {
+			return err
+		}
+		// The purchase may still come: it applies the held refund.
+		return holdMissedRefund(ctx, a.Engine, a.Store,
+			heldRefund{Event: ev, Refunded: refunded, Original: total, Cumulative: true}, keys...)
+	}
+	// Proration base: the sale total (the sale gross); when absent, the
+	// commission's stored gross (refundBase), else the refunded amount.
+	original := total
+	if original <= 0 {
+		original = refundBase(ctx, a.Store, commissionID, refunded)
 	}
 	if cr, ok := a.Engine.(CumulativeRefunder); ok {
 		err = cr.ProcessRefundCumulative(ctx, ev, commissionID, refunded, original)
@@ -455,5 +460,5 @@ func (a *LemonSqueezyAdapter) resolveAndPurchase(ctx context.Context, ev *commis
 	case err != nil:
 		return err
 	}
-	return linkCommission(ctx, a.Store, *ev, cid, basis, keys...)
+	return linkCommission(ctx, a.Engine, a.Store, *ev, cid, basis, keys...)
 }

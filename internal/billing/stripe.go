@@ -611,7 +611,11 @@ func (a *StripeAdapter) handleCheckout(ctx context.Context, env envelope) error 
 	}
 	// A payment-mode session with invoice_creation also sends invoice.paid
 	// (billing_reason=manual) for the same PaymentIntent: whichever of the
-	// two lands first credits, the other finds it linked and stops.
+	// two lands first credits, the other stops. The credit claims the
+	// payment in its own transaction (PaymentKeys), which holds across
+	// processes and when the link write below fails. The lock and the
+	// link lookup are the fast path in one process.
+	ev.PaymentKeys = compact([]string{cs.PaymentIntent, string(cs.Invoice)})
 	unlock := lockPayment(firstNonEmpty(string(cs.Invoice), cs.PaymentIntent))
 	defer unlock()
 	if done, err := a.paymentCredited(ctx, env.ID, cs.PaymentIntent, string(cs.Invoice)); done || err != nil {
@@ -706,6 +710,8 @@ func (a *StripeAdapter) handleInvoice(ctx context.Context, env envelope) error {
 	}
 	// Refunds find the commission by pi_/ch_ (or in_ before 2025-03-31).
 	linkKeys := append([]string{inv.ID}, inv.paymentKeys()...)
+	// One credit per payment, claimed with the credit (see handleCheckout).
+	ev.PaymentKeys = linkKeys
 	unlock := lockPayment(inv.ID)
 	defer unlock()
 	// The invoice of a payment-mode Checkout (invoice_creation) is the
@@ -733,10 +739,21 @@ func (a *StripeAdapter) handleInvoicePayment(ctx context.Context, env envelope) 
 	if ip.Invoice == "" || s == nil {
 		return nil
 	}
-	if err := s.linkAlias(ctx, "stripe", string(ip.Invoice), string(ip.Payment.PaymentIntent), string(ip.Payment.Charge)); err != nil {
+	aliases := []string{string(ip.Payment.PaymentIntent), string(ip.Payment.Charge)}
+	if err := s.linkAlias(ctx, "stripe", string(ip.Invoice), aliases...); err != nil {
 		return fmt.Errorf("billing: stripe %s: %w", env.ID, err) // transient (DB): Stripe retries
 	}
-	return nil
+	// A refund that arrived before this event was held under the pi_/ch_
+	// only. Hold it under the invoice too, so the invoice credit finds it,
+	// and apply it now if that credit already happened.
+	if err := s.copyHeld(ctx, "stripe", string(ip.Invoice), aliases...); err != nil {
+		return fmt.Errorf("billing: stripe %s: %w", env.ID, err)
+	}
+	cid, found, err := a.Store.FindCommission(ctx, "stripe", string(ip.Invoice))
+	if err != nil || !found {
+		return err
+	}
+	return applyHeldRefunds(ctx, a.Engine, s, "stripe", cid, string(ip.Invoice))
 }
 
 // attributeSubscription carries a subscription checkout's token to its
@@ -911,6 +928,9 @@ func (a *StripeAdapter) credit(ctx context.Context, ev commissions.Event, basis 
 	case errors.Is(err, commissions.ErrNoAttribution):
 		log.Printf("billing: %s/%s unattributed (recorded in raw_events, skipped)", ev.Source, ev.ExternalID)
 		return true, nil // permanent condition: ACK so Stripe stops retrying
+	case errors.Is(err, commissions.ErrPaymentCredited):
+		// The other event of this payment credited it (recorded, ACKed).
+		return false, nil
 	default:
 		return false, fmt.Errorf("billing: process purchase %s: %w", ev.ExternalID, err)
 	}
@@ -918,7 +938,7 @@ func (a *StripeAdapter) credit(ctx context.Context, ev commissions.Event, basis 
 	// Refund linkage AFTER the credit exists: cs_/in_/pi_/ch_ aliases let
 	// a later charge.refunded or dispute find this commission. A failure
 	// errors the webhook; Stripe's retry replays and relinks.
-	return false, linkCommission(ctx, a.Store, ev, cid, basis, linkKeys...)
+	return false, linkCommission(ctx, a.Engine, a.Store, ev, cid, basis, linkKeys...)
 }
 
 // findCommission looks the commission up by the refunded payment's ids,
@@ -968,7 +988,8 @@ func (a *StripeAdapter) handleChargeRefunded(ctx context.Context, env envelope) 
 	// payment_intent (checkout/invoice linked it), the invoice id (API
 	// versions before 2025-03-31), or the charge id.
 	keys := compact([]string{ch.PaymentIntent, ch.Invoice, ch.ID})
-	origID, found, err := a.refundParent(ctx, env.ID, keys, ch.AmountRefunded, ev.Currency)
+	origID, found, err := a.refundParent(ctx, env.ID, keys,
+		heldRefund{Event: ev, Refunded: ch.AmountRefunded, Original: ch.Amount, Cumulative: true})
 	if err != nil || !found {
 		return err
 	}
@@ -1012,7 +1033,7 @@ func (a *StripeAdapter) handleDisputeWithdrawn(ctx context.Context, env envelope
 		OccurredAt:  a.at(dp.Created),
 	}
 	keys := compact([]string{string(dp.PaymentIntent), string(dp.Charge)})
-	origID, found, err := a.refundParent(ctx, key, keys, dp.Amount, ev.Currency)
+	origID, found, err := a.refundParent(ctx, key, keys, heldRefund{Event: ev, Refunded: dp.Amount})
 	if err != nil || !found {
 		return err
 	}
@@ -1029,8 +1050,9 @@ func (a *StripeAdapter) handleDisputeWithdrawn(ctx context.Context, env envelope
 }
 
 // refundParent finds the commission a refund or dispute claws. Not found
-// is ACKed (and recorded for reconciliation): retrying cannot help.
-func (a *StripeAdapter) refundParent(ctx context.Context, eventID string, keys []string, amount int64, currency string) (int64, bool, error) {
+// is ACKed (and recorded for reconciliation), and the refund h is held
+// for a purchase that has not arrived yet (holdMissedRefund).
+func (a *StripeAdapter) refundParent(ctx context.Context, eventID string, keys []string, h heldRefund) (int64, bool, error) {
 	if a.Store == nil || len(keys) == 0 {
 		log.Printf("billing: refund %s has no linkage store/keys — recording skip", eventID)
 		return 0, false, nil
@@ -1044,16 +1066,34 @@ func (a *StripeAdapter) refundParent(ctx context.Context, eventID string, keys [
 	if found && origID > 0 {
 		return origID, true, nil
 	}
-	// Not a commissionable sale (or pre-linkage history).
+	// Not a commissionable sale, pre-linkage history, or a refund that
+	// arrived before its purchase.
 	if a.Products.Active() {
 		// Most unlinked refunds on a filtered account are other
 		// products' sales: recording them would bury real misses.
 		log.Printf("billing: refund %s: no commission linked to %v (product filter on, not recorded)", eventID, keys)
-		return 0, false, nil
+	} else {
+		log.Printf("billing: refund %s: no commission linked to %v (recorded, held)", eventID, keys)
+		if rerr := a.Store.RecordRefundMiss(ctx, "stripe", eventID, keys, h.Refunded, h.Event.Currency); rerr != nil {
+			log.Printf("billing: record refund miss %s: %v", eventID, rerr)
+		}
 	}
-	log.Printf("billing: refund %s: no commission linked to %v (recorded, skipped)", eventID, keys)
-	if rerr := a.Store.RecordRefundMiss(ctx, "stripe", eventID, keys, amount, currency); rerr != nil {
-		log.Printf("billing: record refund miss %s: %v", eventID, rerr)
+	// Held also under the invoice an invoice_payment.paid alias names
+	// (API 2025-03-31+), which is the only key the invoice credit links.
+	holdKeys := keys
+	if s := sqlStore(a.Store); s != nil {
+		inv, ok, err := s.findAlias(ctx, "stripe", keys...)
+		if err != nil {
+			return 0, false, fmt.Errorf("billing: refund %s alias lookup: %w", eventID, err)
+		}
+		if ok {
+			holdKeys = append(append([]string{}, keys...), inv)
+		}
+	}
+	// A failed hold errors the webhook: Stripe retries, else the refund
+	// would be lost once its purchase credits.
+	if err := holdMissedRefund(ctx, a.Engine, a.Store, h, holdKeys...); err != nil {
+		return 0, false, fmt.Errorf("billing: refund %s: %w", eventID, err)
 	}
 	return 0, false, nil
 }
