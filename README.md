@@ -85,9 +85,9 @@ AffiliateTracking imports affiliates, referral codes and customers from CSV expo
 - [Self-hosting and operations](DEPLOY.md)
 - [Changelog](CHANGELOG.md)
 
-## Hosted or Enterprise
+## Managed hosting
 
-Self-hosting is free. If you would rather we run it for you, with backups, upgrades, an SLA and migration help, see [Enterprise](https://affiliatetracking.co/pricing) or [contact us](https://affiliatetracking.co/contact).
+Self-hosting is free. If you would rather we run it for you, with backups, upgrades, an SLA and migration help, see [managed hosting](https://affiliatetracking.co/pricing#managed) or [contact us](https://affiliatetracking.co/contact).
 
 The Shopify app and the [WordPress plugin](https://affiliatetracking.co/wordpress-plugin) are separate products and are not in this repository.
 
