@@ -357,24 +357,30 @@ func intPtrArg(p *int) any {
 }
 
 // webhookHealth is each billing tool's last accepted and last rejected
-// webhook (billing health on the dashboard). Empty on error: it is advice,
-// never a reason to fail the settings read.
+// webhook (billing health on the dashboard). last_err_at and err_count are
+// verified failures only; failed signature checks are reported apart
+// (last_sigfail_at, sigfail_count) and never mean "failing". Empty on
+// error: it is advice, never a reason to fail the settings read.
 func (a *api) webhookHealth(ctx context.Context) []map[string]any {
 	out := []map[string]any{}
 	rows, err := a.db.QueryContext(ctx, `
-		SELECT provider, COALESCE(last_ok_at, ''), COALESCE(last_err_at, ''), COALESCE(last_err, ''), ok_count, err_count
+		SELECT provider, COALESCE(last_ok_at, ''), COALESCE(last_err_at, ''), COALESCE(last_err, ''), ok_count, err_count,
+		       COALESCE(last_sigfail_at, ''), sigfail_count
 		FROM webhook_health ORDER BY provider`)
 	if err != nil {
 		return out
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var p, okAt, errAt, lastErr string
-		var okN, errN int64
-		if rows.Scan(&p, &okAt, &errAt, &lastErr, &okN, &errN) != nil {
+		var p, okAt, errAt, lastErr, sigAt string
+		var okN, errN, sigN int64
+		if rows.Scan(&p, &okAt, &errAt, &lastErr, &okN, &errN, &sigAt, &sigN) != nil {
 			return out
 		}
-		out = append(out, map[string]any{"provider": p, "last_ok_at": okAt, "last_err_at": errAt, "last_err": lastErr, "ok_count": okN, "err_count": errN})
+		out = append(out, map[string]any{
+			"provider": p, "last_ok_at": okAt, "last_err_at": errAt, "last_err": lastErr, "ok_count": okN, "err_count": errN,
+			"last_sigfail_at": sigAt, "sigfail_count": sigN,
+		})
 	}
 	return out
 }

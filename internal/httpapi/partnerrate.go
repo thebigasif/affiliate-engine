@@ -55,6 +55,9 @@ func (a *api) handlePartnerRate(w http.ResponseWriter, r *http.Request) {
 		case req.RateType == "percent" && req.RateValue > 10000:
 			apiError(w, http.StatusBadRequest, "A percentage commission can't be over 100%.")
 			return
+		case req.RateValue > maxFixedRateMinor:
+			apiError(w, http.StatusBadRequest, "That commission is too large.")
+			return
 		}
 	}
 	var exists int

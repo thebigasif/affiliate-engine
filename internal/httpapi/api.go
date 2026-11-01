@@ -19,6 +19,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/thebigasif/affiliate-engine/internal/analytics"
 	"github.com/thebigasif/affiliate-engine/internal/apikeys"
@@ -44,11 +45,15 @@ type APIDeps struct {
 	// PayoutExecutor moves money for Approve (nil = manual rail: CSV export
 	// + operator pays; the ledger still settles payable -> clearing).
 	PayoutExecutor func(payoutID int64, amount int64) error
-	RateLimit      int          // requests per minute per key; default 600
-	LedgerPoster   Poster       // may be nil (fraud uphold runs without clawback)
-	MLM            MLMEngine    // may be nil (mlm endpoints disabled)
-	Gamify         GamifyEngine // may be nil (profile/leaderboard disabled)
-	Stats          StatsEngine  // may be nil (drill endpoint disabled)
+	RateLimit      int    // requests per minute per key; default 600
+	LedgerPoster   Poster // may be nil (fraud uphold runs without clawback)
+	// UsageScreen screens each usage commission inside its settlement
+	// transaction (*screening.Engine.ScreenUsage). nil = enforced
+	// screening with the default fraud ruleset.
+	UsageScreen func(ctx context.Context, tx *ledger.Tx, commissionID int64) error
+	MLM         MLMEngine    // may be nil (mlm endpoints disabled)
+	Gamify      GamifyEngine // may be nil (profile/leaderboard disabled)
+	Stats       StatsEngine  // may be nil (drill endpoint disabled)
 
 	// TrustedProxies: peers allowed to supply X-Forwarded-For /
 	// X-Forwarded-Proto (client IP for rate limits, Secure detection).
@@ -126,8 +131,9 @@ type Poster interface {
 func NewAPIHandler(deps APIDeps) http.Handler {
 	a := &api{
 		db: deps.DB, deps: deps, rl: newRateLimiter(deps.RateLimit), stats: deps.Stats,
-		authFail:   newRateLimiter(authFailPerMin),
-		loginLinks: newLoginLinkLimiter(5 * time.Minute),
+		authFail:     newRateLimiter(authFailPerMin),
+		loginLinks:   newLoginLinkLimiter(5 * time.Minute),
+		loginLinkIPs: newWindowLimiter(loginLinksPerIPPerHour, time.Hour),
 	}
 	if deps.PayoutRunner != nil {
 		a.guardPayouts(deps.PayoutRunner)
@@ -216,9 +222,9 @@ func NewAPIHandler(deps APIDeps) http.Handler {
 	mux.HandleFunc("GET /api/v1/portal/logo", a.public(a.handlePortalLogo))
 
 	if deps.Demo {
-		return DemoGuard(mux)
+		return apiHeaders(DemoGuard(mux))
 	}
-	return mux
+	return apiHeaders(mux)
 }
 
 type api struct {
@@ -228,7 +234,8 @@ type api struct {
 	authFail *rateLimiter // failed-auth attempts per client IP
 	stats    StatsEngine
 
-	loginLinks *loginLinkLimiter // login-link emails per address
+	loginLinks   *loginLinkLimiter // login-link emails per address
+	loginLinkIPs *rateLimiter      // login-link requests per client IP
 }
 
 // --- auth wrappers ---
@@ -1164,6 +1171,8 @@ func (a *api) handleFraudQueue(w http.ResponseWriter, r *http.Request) {
 // {"commission_id": N, "decision": "release" | "uphold", "note": "..."}
 //
 //	release: mark the hold resolved; the commission re-enters payout flow.
+//	         Holds in the same review group (one partner-wide verdict)
+//	         are released with it.
 //	uphold:  resolve the hold AND cancel the commission with a ledger
 //	         clawback (expense reversal) — the money movement is undone.
 func (a *api) handleFraudResolve(w http.ResponseWriter, r *http.Request) {
@@ -1180,6 +1189,10 @@ func (a *api) handleFraudResolve(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.CommissionID <= 0 || (req.Decision != "release" && req.Decision != "uphold") {
 		apiError(w, http.StatusBadRequest, "commission_id and decision (release|uphold) required")
+		return
+	}
+	if utf8.RuneCountInString(req.Note) > maxNoteRunes {
+		apiError(w, http.StatusBadRequest, "Keep the note under 1,000 characters.")
 		return
 	}
 
@@ -1205,20 +1218,21 @@ func (a *api) handleFraudResolve(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.Decision == "release" {
-		res, err := db.ExecContext(ctx, `
-			UPDATE commission_holds SET resolved_at = ?, resolution = 'released',
-			       note = COALESCE(NULLIF(?, ''), note)
-			WHERE commission_id = ? AND resolved_at IS NULL`,
-			time.Now().UTC().Format(time.RFC3339), req.Note, req.CommissionID)
+		// A hold placed by a partner-wide verdict is one of a review group:
+		// releasing it releases the rest of the group too.
+		also, err := fraud.ReleaseHold(ctx, db, req.CommissionID, req.Note)
+		if errors.Is(err, fraud.ErrNoOpenHold) {
+			apiError(w, http.StatusConflict, "hold already resolved")
+			return
+		}
 		if err != nil {
 			apiError(w, http.StatusInternalServerError, "release failed")
 			return
 		}
-		if n, _ := res.RowsAffected(); n != 1 {
-			apiError(w, http.StatusConflict, "hold already resolved")
-			return
+		if also == nil {
+			also = []int64{}
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"commission_id": req.CommissionID, "decision": "released"})
+		writeJSON(w, http.StatusOK, map[string]any{"commission_id": req.CommissionID, "decision": "released", "also_released": also})
 		return
 	}
 
@@ -1419,8 +1433,8 @@ func apiError(w http.ResponseWriter, status int, msg string) {
 type rateLimiter struct {
 	mu     sync.Mutex
 	limit  int
-	window int64            // unix minutes
-	seen   map[string]int64 // bucket key -> unix minute
+	period int64            // window length in seconds (60 = per minute)
+	seen   map[string]int64 // bucket key -> window number (unix seconds / period)
 	counts map[string]int64 // bucket key -> count in window
 	calls  uint64           // lazy-sweep counter
 }
@@ -1429,9 +1443,19 @@ func newRateLimiter(perMinute int) *rateLimiter {
 	if perMinute <= 0 {
 		perMinute = 600
 	}
+	return newWindowLimiter(perMinute, time.Minute)
+}
+
+// newWindowLimiter allows limit hits per key in each fixed window of the
+// given length (at least one second).
+func newWindowLimiter(limit int, window time.Duration) *rateLimiter {
+	period := int64(window / time.Second)
+	if period < 1 {
+		period = 1
+	}
 	return &rateLimiter{
-		limit:  perMinute,
-		window: -1,
+		limit:  limit,
+		period: period,
 		seen:   map[string]int64{},
 		counts: map[string]int64{},
 	}
@@ -1440,7 +1464,7 @@ func newRateLimiter(perMinute int) *rateLimiter {
 func (rl *rateLimiter) allow(bucket string) bool {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
-	now := time.Now().Unix() / 60
+	now := time.Now().Unix() / rl.period
 	if rl.seen[bucket] != now {
 		// Window rolled: recycle the entry (constant space: one slot per key).
 		rl.seen[bucket] = now
@@ -1471,5 +1495,5 @@ func (rl *rateLimiter) allow(bucket string) bool {
 func (rl *rateLimiter) exceeded(bucket string) bool {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
-	return rl.seen[bucket] == time.Now().Unix()/60 && rl.counts[bucket] >= int64(rl.limit)
+	return rl.seen[bucket] == time.Now().Unix()/rl.period && rl.counts[bucket] >= int64(rl.limit)
 }

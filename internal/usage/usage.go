@@ -90,6 +90,12 @@ func (in *Ingestor) Ingest(ctx context.Context, ev Event) error {
 type Settler struct {
 	db     *sql.DB
 	Poster Poster
+	// Screen screens each usage commission inside the settlement
+	// transaction, right after its row is written, like a purchase is
+	// screened in the transaction that credits it: its verdicts and hold
+	// commit with the commission or not at all. An error rolls the whole
+	// settlement back. nil = not screened.
+	Screen func(ctx context.Context, tx Tx, commissionID int64) error
 }
 
 // Poster is the ledger slice (satisfied by *ledger.Poster through a thin
@@ -271,13 +277,20 @@ func (s *Settler) settleTx(ctx context.Context, tx Tx, day, unitRateBP int64, mo
 			}
 			journalID, delta, basis = jid, amount, m.settled+amount
 		}
-		if _, err := tx.ExecContext(ctx, `
+		var commissionID int64
+		if err := tx.QueryRowContext(ctx, `
 			INSERT INTO commissions (affiliate_id, campaign_id, journal_id, amount, currency, rate_snapshot, status, matures_at, created_at)
-			VALUES (?, 1, ?, ?, 'USD', ?, 'pending', ?, ?)`,
+			VALUES (?, 1, ?, ?, 'USD', ?, 'pending', ?, ?)
+			RETURNING id`,
 			m.affiliateID, journalID, delta,
 			fmt.Sprintf(`{"origin":"usage","unit_type":%q,"units":%d,"rate_bp":%d}`, m.unitType, m.units, unitRateBP),
-			matures, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
+			matures, time.Now().UTC().Format(time.RFC3339Nano)).Scan(&commissionID); err != nil {
 			return 0, fmt.Errorf("usage: commission row: %w", err)
+		}
+		if s.Screen != nil {
+			if err := s.Screen(ctx, tx, commissionID); err != nil {
+				return 0, fmt.Errorf("usage: screen commission %d: %w", commissionID, err)
+			}
 		}
 		if _, err := tx.ExecContext(ctx, `
 			UPDATE usage_daily SET settled_cents = ? WHERE day = ? AND customer_ext_id = ? AND unit_type = ?`,

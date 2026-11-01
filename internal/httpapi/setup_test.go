@@ -30,11 +30,12 @@ func TestSettings_SetupStatus(t *testing.T) {
 	}
 }
 
-// setup.webhooks reports each billing tool's last accepted and rejected event.
+// setup.webhooks reports each billing tool's last accepted and rejected
+// event, and its failed signature checks apart.
 func TestSettings_WebhookHealth(t *testing.T) {
 	srv, h, key := portalEnv(t)
-	if _, err := h.DB.Exec(`INSERT INTO webhook_health (provider, last_ok_at, ok_count, last_err_at, last_err, err_count)
-		VALUES ('stripe', '2026-09-30T10:00:00Z', 5, '2026-09-30T11:00:00Z', 'billing: invalid webhook signature', 1)`); err != nil {
+	if _, err := h.DB.Exec(`INSERT INTO webhook_health (provider, last_ok_at, ok_count, last_err_at, last_err, err_count, last_sigfail_at, sigfail_count)
+		VALUES ('stripe', '2026-09-30T10:00:00Z', 5, '2026-09-30T11:00:00Z', 'store: database is locked', 1, '2026-09-30T12:00:00Z', 7)`); err != nil {
 		t.Fatal(err)
 	}
 	_, out := getJSON(t, srv.URL+"/api/v1/admin/settings", key)
@@ -44,7 +45,8 @@ func TestSettings_WebhookHealth(t *testing.T) {
 		t.Fatalf("webhooks: %v", setup["webhooks"])
 	}
 	w := wh[0].(map[string]any)
-	if w["provider"] != "stripe" || w["ok_count"] != float64(5) || w["err_count"] != float64(1) || w["last_err"] != "billing: invalid webhook signature" {
+	if w["provider"] != "stripe" || w["ok_count"] != float64(5) || w["err_count"] != float64(1) || w["last_err"] != "store: database is locked" ||
+		w["last_sigfail_at"] != "2026-09-30T12:00:00Z" || w["sigfail_count"] != float64(7) {
 		t.Fatalf("stripe health: %v", w)
 	}
 }

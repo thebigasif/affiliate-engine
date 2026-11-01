@@ -3,6 +3,7 @@ package payouts_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -225,5 +226,85 @@ func TestExport_RefundAfterExportNeverRestages(t *testing.T) {
 	}
 	if _, n, _ := r.CreateBatch(ctx, 0, "wise"); n != 0 {
 		t.Fatalf("surviving commission re-batched into %d payout(s): paid twice", n)
+	}
+}
+
+// X5: a preview lists what a claim would list (rail filter and gate)
+// and changes nothing: the payout stays unclaimed, a second preview
+// lists it again, and a later claim still takes it.
+func TestExport_PreviewClaimsNothing(t *testing.T) {
+	h, r, e := newEnv(t)
+	ctx := context.Background()
+	matureOne(t, e, h, "x5-a", 1, 10000)
+	if _, n, err := r.CreateBatch(ctx, 0, "paypal"); err != nil || n != 1 {
+		t.Fatalf("paypal batch: n=%d err=%v", n, err)
+	}
+	matureOne(t, e, h, "x5-b", 2, 20000)
+	if _, n, err := r.CreateBatch(ctx, 0, "paypal"); err != nil || n != 1 {
+		t.Fatalf("second batch: n=%d err=%v", n, err)
+	}
+	open, blocked := payoutOf(t, h, 1), payoutOf(t, h, 2)
+	if _, err := h.DB.Exec(`INSERT INTO commission_holds (commission_id, reason) SELECT commission_id, 'flag' FROM payout_lines WHERE payout_id = ?`, blocked); err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		res, err := r.PreviewExport(ctx, "paypal")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ids := exportedIDs(res); len(ids) != 1 || ids[0] != open || res.Skipped != 1 || res.Batch != "" {
+			t.Fatalf("preview=%v skipped=%d batch=%q", ids, res.Skipped, res.Batch)
+		}
+		if res, err := r.PreviewExport(ctx, "wise"); err != nil || len(res.Payouts) != 0 {
+			t.Fatalf("wise preview listed %v (err %v)", exportedIDs(res), err)
+		}
+	}
+	var claimed int
+	h.DB.QueryRow(`SELECT COUNT(*) FROM payouts WHERE exported_at IS NOT NULL OR export_batch IS NOT NULL`).Scan(&claimed)
+	if claimed != 0 {
+		t.Fatalf("preview claimed %d payout(s)", claimed)
+	}
+	res, err := r.ClaimForExport(ctx, "paypal")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ids := exportedIDs(res); len(ids) != 1 || ids[0] != open {
+		t.Fatalf("claim after preview=%v want %d", ids, open)
+	}
+}
+
+// X6: a claim limited to named payouts claims only those that pass the
+// gate, reports each blocked one with its reason, and never touches a
+// payout it was not given.
+func TestExport_ClaimOnlyNamed(t *testing.T) {
+	h, r, e := newEnv(t)
+	ctx := context.Background()
+	if _, err := h.DB.Exec(`INSERT INTO affiliates (id, email) VALUES (3, 'c@t.dev')`); err != nil {
+		t.Fatal(err)
+	}
+	for i, aff := range []int64{1, 2, 3} {
+		matureOne(t, e, h, fmt.Sprintf("x6-%d", i), aff, 10000)
+		if _, n, err := r.CreateBatch(ctx, 0, "paypal"); err != nil || n != 1 {
+			t.Fatalf("batch %d: n=%d err=%v", aff, n, err)
+		}
+	}
+	open, held, other := payoutOf(t, h, 1), payoutOf(t, h, 2), payoutOf(t, h, 3)
+	if _, err := h.DB.Exec(`INSERT INTO commission_holds (commission_id, reason) SELECT commission_id, 'flag' FROM payout_lines WHERE payout_id = ?`, held); err != nil {
+		t.Fatal(err)
+	}
+	res, err := r.ClaimForExportOnly(ctx, "paypal", []int64{open, held, 999999})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ids := exportedIDs(res); len(ids) != 1 || ids[0] != open {
+		t.Fatalf("claimed %v want %d", ids, open)
+	}
+	if res.Skipped != 1 || len(res.Blocked) != 1 || res.Blocked[0].PayoutID != held || res.Blocked[0].Block.Kind != payouts.GateHold {
+		t.Fatalf("blocked %+v skipped %d", res.Blocked, res.Skipped)
+	}
+	var claimed int
+	h.DB.QueryRow(`SELECT COUNT(*) FROM payouts WHERE exported_at IS NOT NULL AND id IN (?, ?)`, held, other).Scan(&claimed)
+	if claimed != 0 {
+		t.Fatalf("claimed %d payout(s) it was not given or that the gate blocks", claimed)
 	}
 }

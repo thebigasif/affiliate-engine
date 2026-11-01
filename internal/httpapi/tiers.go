@@ -109,6 +109,10 @@ func (a *api) handleTiers(w http.ResponseWriter, r *http.Request) {
 			apiError(w, http.StatusBadRequest, "negative rate")
 			return
 		}
+		if req.RateValue > maxFixedRateMinor {
+			apiError(w, http.StatusBadRequest, "rate_value too large")
+			return
+		}
 		productKey := strings.TrimSpace(req.ProductKey)
 		if len(productKey) > 128 {
 			apiError(w, http.StatusBadRequest, "product_key too long (max 128)")

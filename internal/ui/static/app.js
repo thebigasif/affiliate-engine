@@ -363,7 +363,7 @@ function renderAttention(){
   const a = attention, dot = (id, n)=>{ const el = $(id); if(el) el.textContent = n>0 ? String(n) : ""; };
   dot("n-apps", a.apps); dot("n-fraud", a.holds); dot("n-payouts", a.payouts); dot("n-tax", a.tax); dot("n-settings", (a.norate?1:0)+(a.billingFailing||[]).length);
   const items = [];
-  (a.billingFailing||[]).forEach(h=>items.push(["red", `${h.name} sales events are being rejected (last ${ago(h.w.last_err_at)}). Sales may not be credited until you fix it.`, "settings", "Fix"]));
+  (a.billingFailing||[]).forEach(h=>items.push(["red", `${h.name} sales events could not be processed (last ${ago(h.w.last_err_at)}). Sales may not be credited until you fix it.`, "settings", "Fix"]));
   if(a.apps>0) items.push(["", `${a.apps} ${plural(a.apps,"person wants","people want")} to become a partner.`, "applications", "Review"]);
   if(a.holds>0) items.push(["red", `${a.holds} ${plural(a.holds,"commission is","commissions are")} held by fraud checks and ${plural(a.holds,"needs","need")} your decision.`, "fraud", "Decide"]);
   if(a.payouts>0) items.push(["", `${a.payouts} ${plural(a.payouts,"payout is","payouts are")} waiting for you to pay and mark as paid.`, "payouts", "Pay"]);
@@ -508,14 +508,23 @@ const portalTrend = trendChart($("p-trend"), {
 // Getting started: five steps, each ticked off by what the engine can see.
 const BILLING = {stripe:"Stripe", paddle:"Paddle", chargebee:"Chargebee", lemonsqueezy:"Lemon Squeezy", recurly:"Recurly", polar:"Polar"};
 // billingHealth: per configured billing tool, whether its webhook events
-// arrive, and whether the latest signed one was rejected (in the last week).
+// arrive, and whether the latest verified one failed (in the last week).
+// A failed signature check is never "failing": anyone can send one. It is
+// only a quiet note (sigNote) while no event has been accepted since.
 function billingHealth(){
   const s = state.setup||{}, week = Date.now()-7*864e5;
+  const recent = at=>!!at && parseTime(at).getTime() > week;
   return (s.billing||[]).map(p=>{
     const w = (s.webhooks||[]).find(x=>x.provider===p) || {};
-    const failing = !!w.last_err_at && (!w.last_ok_at || w.last_err_at > w.last_ok_at) && parseTime(w.last_err_at).getTime() > week;
-    return {provider:p, name:BILLING[p]||p, received:(w.ok_count||0)>0, failing, w};
+    const failing = recent(w.last_err_at) && (!w.last_ok_at || w.last_err_at > w.last_ok_at);
+    const sigNote = !failing && recent(w.last_sigfail_at) && (!w.last_ok_at || w.last_sigfail_at > w.last_ok_at);
+    return {provider:p, name:BILLING[p]||p, received:(w.ok_count||0)>0, failing, sigNote, w};
   });
+}
+// sigNote: the quiet line under a billing tool when requests with a
+// signature that did not match arrived after its last accepted event.
+function sigNote(h){
+  return h.sigNote ? `<span class="sub">Some requests had a signature that did not match (last ${ago(h.w.last_sigfail_at)}). If they came from ${esc(h.name)}, check the signing secret you set.</span>` : "";
 }
 function renderSetup(){
   const d = state.dash||{}, s = state.setup||{}, billing = s.billing||[];
@@ -544,9 +553,9 @@ function renderSetup(){
   const row = (on, text)=>`<div class="status ${on===true?"on":on==="bad"?"bad":"off"}"><i></i><span>${text}</span></div>`;
   $("setup-status").innerHTML =
     (billing.length ? health.map(h=>
-      h.failing ? row("bad", `${esc(h.name)}: the last event was rejected ${ago(h.w.last_err_at)}. Sales may not be credited. Check the webhook signing secret you set for ${esc(h.name)}.<span class="sub">${esc(h.w.last_err)}${h.w.last_ok_at?` · Last accepted event: ${ago(h.w.last_ok_at)}`:""}</span>`)
-      : h.received ? row(true, `${esc(h.name)}: working. Last event ${ago(h.w.last_ok_at)}, ${num(h.w.ok_count)} received.`)
-      : row(false, `${esc(h.name)}: set up, but no event has arrived yet.`)).join("") : row(false, `Billing: not connected yet. ${guides}`)) +
+      h.failing ? row("bad", `${esc(h.name)}: the last event could not be processed (${ago(h.w.last_err_at)}). Sales may not be credited.<span class="sub">${esc(h.w.last_err)}${h.w.last_ok_at?` · Last accepted event: ${ago(h.w.last_ok_at)}`:""}</span>`)
+      : h.received ? row(true, `${esc(h.name)}: working. Last event ${ago(h.w.last_ok_at)}, ${num(h.w.ok_count)} received.${sigNote(h)}`)
+      : row(false, `${esc(h.name)}: set up, but no event has arrived yet.${sigNote(h)}`)).join("") : row(false, `Billing: not connected yet. ${guides}`)) +
     row(!!s.mail, s.mail ? "Partner emails: on (sign-in links and payout notes)" : "Partner emails: off. You copy sign-in links and send them yourself.") +
     row((d.clicks_total||0)>0, (d.clicks_total||0)>0 ? "Tracking script: working, clicks are arriving" : "Tracking script: no clicks seen yet");
 }

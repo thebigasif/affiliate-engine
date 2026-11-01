@@ -24,6 +24,7 @@ import (
 	"github.com/thebigasif/affiliate-engine/internal/dbutil"
 	"github.com/thebigasif/affiliate-engine/internal/partnermail"
 	"github.com/thebigasif/affiliate-engine/internal/payouts"
+	"github.com/thebigasif/affiliate-engine/internal/privacy"
 )
 
 // PayoutDetailsCooling is how long a partner's payouts wait after they
@@ -195,6 +196,24 @@ func openPayoutDetails(key []byte, affID int64, sealed []byte) (*PayoutDetails, 
 		return nil, false
 	}
 	return &d, true
+}
+
+// PayoutDetailsOpener unseals stored payout details for the partner's own
+// data export (internal/privacy). The fields are plain text.
+func PayoutDetailsOpener(taxDocKey []byte) privacy.PayoutOpener {
+	key := payoutKey(taxDocKey)
+	return func(affID int64, sealed []byte) (map[string]any, bool) {
+		d, ok := openPayoutDetails(key, affID, sealed)
+		if !ok {
+			return nil, false
+		}
+		return map[string]any{
+			"method":       d.Method,
+			"paypal_email": d.PayPalEmail,
+			"wise_email":   d.WiseEmail,
+			"bank":         d.Bank,
+		}, true
+	}
 }
 
 // validPayoutEmail: one plain address, no display name.

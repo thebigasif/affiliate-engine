@@ -12,11 +12,10 @@ import (
 )
 
 // AE_FRAUD_DRYRUN must hold on the periodic sweep too: a dry-run sweep
-// records only dry-run verdicts, an enforcing sweep records enforcing
-// ones. Neither places holds: the sweep evaluates affiliates, not a
-// commission, and fraud holds are scoped to the evaluated commission and
-// click-linked commissions (a sweep verdict must never blanket-hold an
-// affiliate's whole balance; see internal/fraud engine.go "Hold scope").
+// records only dry-run verdicts and places no holds. An enforcing sweep
+// records enforcing verdicts, and a partner-wide verdict
+// (conversion_velocity) holds the affiliate's unpaid commissions in one
+// review group (see internal/fraud engine.go "Hold scope").
 func TestFraudSweep_HonoursDryRun(t *testing.T) {
 	ctx := context.Background()
 	h, err := db.Open(ctx, "sqlite:"+filepath.Join(t.TempDir(), "sweep.db"), db.Options{})
@@ -67,7 +66,10 @@ func TestFraudSweep_HonoursDryRun(t *testing.T) {
 	if count(`SELECT COUNT(*) FROM fraud_verdicts WHERE dry_run = FALSE`) == 0 {
 		t.Fatal("enforcing sweep recorded no enforcing verdicts")
 	}
-	if n := count(`SELECT COUNT(*) FROM commission_holds`); n != 0 {
-		t.Fatalf("enforcing sweep blanket-held %d commissions (holds are scoped to the evaluated commission)", n)
+	if n := count(`SELECT COUNT(*) FROM commission_holds WHERE resolved_at IS NULL`); n != 30 {
+		t.Fatalf("enforcing sweep held %d commissions, want the 30 unpaid ones", n)
+	}
+	if n := count(`SELECT COUNT(DISTINCT hold_group) FROM commission_holds`); n != 1 {
+		t.Fatalf("enforcing sweep holds span %d groups, want 1", n)
 	}
 }

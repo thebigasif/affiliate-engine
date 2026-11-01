@@ -13,11 +13,14 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/thebigasif/affiliate-engine/internal/apikeys"
+	"github.com/thebigasif/affiliate-engine/internal/fraud"
 	"github.com/thebigasif/affiliate-engine/internal/ids"
 	"github.com/thebigasif/affiliate-engine/internal/ledger"
 	"github.com/thebigasif/affiliate-engine/internal/plan"
+	"github.com/thebigasif/affiliate-engine/internal/screening"
 	"github.com/thebigasif/affiliate-engine/internal/settings"
 	"github.com/thebigasif/affiliate-engine/internal/usage"
 )
@@ -75,6 +78,10 @@ func (a *api) handleCampaigns(w http.ResponseWriter, r *http.Request) {
 		}
 		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<14)).Decode(&req); err != nil || strings.TrimSpace(req.Name) == "" {
 			apiError(w, http.StatusBadRequest, "name required")
+			return
+		}
+		if utf8.RuneCountInString(strings.TrimSpace(req.Name)) > maxCampaignNameRunes {
+			apiError(w, http.StatusBadRequest, "name max 120 characters")
 			return
 		}
 		// Per-program config with sane bounds (1..365 days).
@@ -226,6 +233,14 @@ func (a *api) handleRules(w http.ResponseWriter, r *http.Request) {
 		}
 		if req.RateValue < 0 {
 			apiError(w, http.StatusBadRequest, "negative rate")
+			return
+		}
+		if req.RateValue > maxFixedRateMinor {
+			apiError(w, http.StatusBadRequest, "rate_value too large")
+			return
+		}
+		if req.Priority < -maxRulePriority || req.Priority > maxRulePriority {
+			apiError(w, http.StatusBadRequest, "priority must be between -1000000 and 1000000")
 			return
 		}
 		// Product key: optional; trimmed; bounded (a key is a join/lookup
@@ -427,6 +442,7 @@ func (a *api) handleUsageIngest(w http.ResponseWriter, r *http.Request) {
 			apiError(w, http.StatusServiceUnavailable, "ledger poster not wired")
 			return
 		}
+		set.Screen = a.usageScreen()
 		n, err := set.SettleDay(ctx, req.SettleDay, req.SettleRateBP)
 		if err != nil {
 			apiError(w, http.StatusInternalServerError, "settlement failed: "+err.Error())
@@ -500,6 +516,23 @@ func (a *api) handleMLMPlace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"affiliate_id": req.AffiliateID, "placed": true})
+}
+
+// usageScreen screens each usage commission in its settlement
+// transaction: APIDeps.UsageScreen, or else enforced screening with the
+// default ruleset (usage commissions are never left unscreened).
+func (a *api) usageScreen() func(ctx context.Context, tx usage.Tx, commissionID int64) error {
+	screen := a.deps.UsageScreen
+	if screen == nil {
+		screen = screening.New(nil, fraud.NewEngine(a.db), false).ScreenUsage
+	}
+	return func(ctx context.Context, tx usage.Tx, commissionID int64) error {
+		ltx, ok := tx.(*ledger.Tx)
+		if !ok {
+			return fmt.Errorf("usage screening: unexpected transaction type %T", tx)
+		}
+		return screen(ctx, ltx, commissionID)
+	}
 }
 
 // usagePosterAdapter bridges httpapi.Poster to usage.Poster.

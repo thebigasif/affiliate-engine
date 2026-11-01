@@ -71,8 +71,9 @@ type Engine struct {
 	now    func() time.Time
 
 	// MLMBVRecorder records business volume for the MLM trees when a
-	// commission credits (optional; nil = MLM disabled). Fail-open by
-	// design — the reconciler self-heals counter drift. currency is the
+	// commission credits, and takes it back (negative bv) when a refund
+	// claws the commission back (optional; nil = MLM disabled). Fail-open
+	// by design — the reconciler self-heals counter drift. currency is the
 	// commission's; the recorder decides what counts (mlm.RecordBV: the
 	// program currency only).
 	MLMBV func(ctx context.Context, affiliateID int64, day int64, currency string, bv int64) error
@@ -491,12 +492,37 @@ func (e *Engine) processRefund(ctx context.Context, ev Event, originalCommission
 	// same parent, so this also serializes provider retries of the event.
 	unlock := moneylock.LockIn(ctx, moneylock.Commission(originalCommissionID))
 	defer unlock()
-	return e.poster.Run(ctx, func(ctx context.Context, tx *ledger.Tx) error {
-		return e.refundTx(ctx, tx, ev, originalCommissionID, refundedMinor, originalMinor, cumulativeMode)
-	})
+	var claw clawResult
+	if err := e.poster.Run(ctx, func(ctx context.Context, tx *ledger.Tx) error {
+		claw = clawResult{}
+		return e.refundTx(ctx, tx, ev, originalCommissionID, refundedMinor, originalMinor, cumulativeMode, &claw)
+	}); err != nil {
+		return err
+	}
+	// MLM business volume: a refund takes back the volume of what it
+	// clawed, so refunded sales never count toward the trees. After the
+	// commit, like the credit's BV (the recorder writes through its own
+	// handle). Fail-open.
+	if claw.amount > 0 && e.MLMBV != nil {
+		at := ev.OccurredAt
+		if at.IsZero() {
+			at = e.now()
+		}
+		if err := e.MLMBV(ctx, claw.affiliateID, dayOf(at), claw.currency, -claw.amount); err != nil {
+			log.Printf("commissions: mlm bv reversal (affiliate=%d amount=%d): %v [reconciler will heal]",
+				claw.affiliateID, claw.amount, err)
+		}
+	}
+	return nil
 }
 
-func (e *Engine) refundTx(ctx context.Context, tx *ledger.Tx, ev Event, originalCommissionID int64, refundedMinor, originalMinor int64, cumulativeMode bool) error {
+// clawResult is the clawback row a refund wrote (amount 0 = none).
+type clawResult struct {
+	affiliateID, amount int64
+	currency            string
+}
+
+func (e *Engine) refundTx(ctx context.Context, tx *ledger.Tx, ev Event, originalCommissionID int64, refundedMinor, originalMinor int64, cumulativeMode bool, out *clawResult) error {
 	reentered, err := claimEvent(ctx, tx, ev, "refund")
 	if err != nil {
 		return err
@@ -562,7 +588,7 @@ func (e *Engine) refundTx(ctx context.Context, tx *ledger.Tx, ev Event, original
 			return err
 		}
 		if jid != 0 {
-			return e.finishClawback(ctx, tx, ev, p, jid, refundInc)
+			return e.finishClawback(ctx, tx, ev, p, jid, refundInc, out)
 		}
 	}
 
@@ -584,7 +610,7 @@ func (e *Engine) refundTx(ctx context.Context, tx *ledger.Tx, ev Event, original
 		// already took the money back — unless a pre-atomic attempt of
 		// THIS refund moved the parent and died before its claw posted.
 		if reentered && remaining > 0 {
-			return e.resumeTerminalClawback(ctx, tx, ev, p, idem, remaining, refundInc)
+			return e.resumeTerminalClawback(ctx, tx, ev, p, idem, remaining, refundInc, out)
 		}
 		return markProcessed(ctx, tx, ev, "parent_terminal")
 	}
@@ -619,6 +645,7 @@ func (e *Engine) refundTx(ctx context.Context, tx *ledger.Tx, ev Event, original
 	if err := e.insertClawbackRow(ctx, tx, p, clawJournalID, claw, refundInc, ev.Reason); err != nil {
 		return err
 	}
+	*out = clawResult{affiliateID: p.affiliateID, amount: claw, currency: p.currency}
 	return markProcessedOK(ctx, tx, ev)
 }
 
@@ -626,7 +653,7 @@ func (e *Engine) refundTx(ctx context.Context, tx *ledger.Tx, ev Event, original
 // earlier (pre-atomic) attempt: the clawback row is written from the
 // journal's amount (unless it exists already) and the event is marked
 // processed.
-func (e *Engine) finishClawback(ctx context.Context, tx *ledger.Tx, ev Event, p clawParent, journalID, refundInc int64) error {
+func (e *Engine) finishClawback(ctx context.Context, tx *ledger.Tx, ev Event, p clawParent, journalID, refundInc int64, out *clawResult) error {
 	var n int
 	if err := tx.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM commissions WHERE journal_id = ?`, journalID).Scan(&n); err != nil {
@@ -640,6 +667,7 @@ func (e *Engine) finishClawback(ctx context.Context, tx *ledger.Tx, ev Event, p 
 		if err := e.insertClawbackRow(ctx, tx, p, journalID, -expense, refundInc, ev.Reason); err != nil {
 			return err
 		}
+		*out = clawResult{affiliateID: p.affiliateID, amount: -expense, currency: p.currency}
 	}
 	return markProcessedOK(ctx, tx, ev)
 }
@@ -650,7 +678,7 @@ func (e *Engine) finishClawback(ctx context.Context, tx *ledger.Tx, ev Event, p 
 // mature:<id> journal exists, or the parent reached 'clawback' from paid),
 // HOLD otherwise. A fraud uphold (fraudclaw:<id>) means the money was
 // already clawed.
-func (e *Engine) resumeTerminalClawback(ctx context.Context, tx *ledger.Tx, ev Event, p clawParent, idem string, remaining, refundInc int64) error {
+func (e *Engine) resumeTerminalClawback(ctx context.Context, tx *ledger.Tx, ev Event, p clawParent, idem string, remaining, refundInc int64, out *clawResult) error {
 	upheld, err := journalByKey(ctx, tx, fmt.Sprintf("fraudclaw:%d", p.id))
 	if err != nil {
 		return err
@@ -678,6 +706,7 @@ func (e *Engine) resumeTerminalClawback(ctx context.Context, tx *ledger.Tx, ev E
 	if err := e.insertClawbackRow(ctx, tx, p, jid, remaining, refundInc, ev.Reason); err != nil {
 		return err
 	}
+	*out = clawResult{affiliateID: p.affiliateID, amount: remaining, currency: p.currency}
 	return markProcessedOK(ctx, tx, ev)
 }
 

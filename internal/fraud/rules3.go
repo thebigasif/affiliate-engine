@@ -200,7 +200,7 @@ type GeoMismatch struct{ DB *sql.DB }
 func (GeoMismatch) Name() string { return "geo_mismatch" }
 
 func (r GeoMismatch) Evaluate(ctx context.Context, q Query) ([]Verdict, error) {
-	if q.AffiliateID == 0 {
+	if q.AffiliateID == 0 || q.Usage {
 		return nil, nil
 	}
 	since := q.Now.UTC().Add(-7 * 24 * time.Hour).Format(time.RFC3339Nano)
@@ -273,10 +273,11 @@ func (r GeoMismatch) Evaluate(ctx context.Context, q Query) ([]Verdict, error) {
 
 	if foreign >= 3 && foreign*10 >= tagged { // >=3 and >=10% of tagged
 		return []Verdict{{
-			Rule:    "geo_mismatch",
-			Subject: fmt.Sprint(q.AffiliateID),
-			Reason:  fmt.Sprintf("%d of %d sales in the last 7 days came from countries none of the clicks came from (like %s)", foreign, tagged, foreignSample),
-			Action:  ActionHold,
+			Rule:          "geo_mismatch",
+			Subject:       fmt.Sprint(q.AffiliateID),
+			Reason:        fmt.Sprintf("%d of %d sales in the last 7 days came from countries none of the clicks came from (like %s)", foreign, tagged, foreignSample),
+			Action:        ActionHold,
+			AffiliateWide: true,
 		}}, nil
 	}
 	return nil, nil
@@ -291,16 +292,16 @@ type IPFallbackAnomaly struct{ DB *sql.DB }
 func (IPFallbackAnomaly) Name() string { return "ip_fallback_anomaly" }
 
 func (r IPFallbackAnomaly) Evaluate(ctx context.Context, q Query) ([]Verdict, error) {
-	if q.AffiliateID == 0 {
+	if q.AffiliateID == 0 || q.Usage {
 		return nil, nil
 	}
 	var fallbacks, total int64
 	err := Conn(ctx, r.DB).QueryRowContext(ctx, `
 		SELECT
-		  COALESCE(SUM(CASE WHEN attribution_method = 'ip_fallback' THEN 1 ELSE 0 END), 0),
+		  COALESCE(SUM(CASE WHEN c.attribution_method = 'ip_fallback' THEN 1 ELSE 0 END), 0),
 		  COUNT(*)
-		FROM commissions
-		WHERE affiliate_id = ? AND created_at > ?`,
+		FROM commissions c
+		WHERE c.affiliate_id = ? AND c.created_at > ? AND `+salesOnly,
 		q.AffiliateID, q.Now.UTC().Add(-7*24*time.Hour).Format(time.RFC3339)).Scan(&fallbacks, &total)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, err
@@ -310,10 +311,11 @@ func (r IPFallbackAnomaly) Evaluate(ctx context.Context, q Query) ([]Verdict, er
 	}
 	if fallbacks*20 > total { // >5%
 		return []Verdict{{
-			Rule:    "ip_fallback_anomaly",
-			Subject: fmt.Sprint(q.AffiliateID),
-			Reason:  fmt.Sprintf("%d of %d sales in the last 7 days were credited by IP address match only, not by a link or coupon", fallbacks, total),
-			Action:  ActionHold,
+			Rule:          "ip_fallback_anomaly",
+			Subject:       fmt.Sprint(q.AffiliateID),
+			Reason:        fmt.Sprintf("%d of %d sales in the last 7 days were credited by IP address match only, not by a link or coupon", fallbacks, total),
+			Action:        ActionHold,
+			AffiliateWide: true,
 		}}, nil
 	}
 	return nil, nil
@@ -333,7 +335,7 @@ type PaymentFingerprint struct{ DB *sql.DB }
 func (PaymentFingerprint) Name() string { return "payment_fingerprint" }
 
 func (r PaymentFingerprint) Evaluate(ctx context.Context, q Query) ([]Verdict, error) {
-	if q.AffiliateID == 0 {
+	if q.AffiliateID == 0 || q.Usage {
 		return nil, nil
 	}
 	// Buyer emails this affiliate shares with OTHER affiliates' commissions.
@@ -375,9 +377,10 @@ func (r PaymentFingerprint) Evaluate(ctx context.Context, q Query) ([]Verdict, e
 		return nil, nil
 	}
 	return []Verdict{{
-		Rule:    r.Name(),
-		Subject: fmt.Sprintf("affiliate:%d", q.AffiliateID),
-		Reason:  fmt.Sprintf("%d buyers also bought through other partners, a sign of the same people cycling purchases", shared),
-		Action:  ActionHold,
+		Rule:          r.Name(),
+		Subject:       fmt.Sprintf("affiliate:%d", q.AffiliateID),
+		Reason:        fmt.Sprintf("%d buyers also bought through other partners, a sign of the same people cycling purchases", shared),
+		Action:        ActionHold,
+		AffiliateWide: true,
 	}}, nil
 }

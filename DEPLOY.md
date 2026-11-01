@@ -67,6 +67,7 @@ creates (db, WAL, backups, secret) is owner-only.
 | `AE_MAIL_REPLY_TO` | where partner replies go | the From address |
 | `AE_OWNER_EMAIL` | where the owner's daily "something needs you" email goes (Settings can change it) | `AE_MAIL_REPLY_TO` |
 | `AE_COOKIE_SECURE` | `1` = always mark attribution + portal cookies `Secure` (TLS requests get it anyway) | unset |
+| `AE_HSTS` | `0` = do not send `Strict-Transport-Security`. When on, it is sent (180 days, this host only) on HTTPS requests only: direct TLS, or `X-Forwarded-Proto: https` from a trusted proxy. Plain HTTP never gets it | on |
 | `AE_TRUSTED_PROXIES` | comma-separated CIDRs/IPs of your reverse proxies / CDN edges; only these peers may set `X-Forwarded-For`, `X-Forwarded-Proto` and geo headers (`Cf-Ipcountry`, ...) | unset (trust nobody) |
 | `AE_REDIRECT_RATE_PER_MIN` | `/r/` requests per client IP per minute before `429`; `-1` disables (load tests) | `120` |
 | `AE_MIGRATE_DATABASE_URL` | separate DSN (same engine) used only to run migrations at startup — see the two-role Postgres setup | unset (migrate with `-db`) |
@@ -82,6 +83,11 @@ and ignores forwarding headers — behind a proxy that means every visitor
 shares the proxy's IP (and its rate-limit bucket). Set it to the proxy's
 address range: the client is then the rightmost `X-Forwarded-For` hop that
 is not itself a trusted proxy, which a visitor cannot forge.
+
+Billing webhooks (`/webhooks/*`) allow 3000 requests per client IP per
+minute. That is far above any burst a billing tool sends; beyond it the
+engine answers `429` with `Retry-After`, and the billing tool retries. The
+same client-IP rule applies, so set `AE_TRUSTED_PROXIES` behind a proxy.
 
 ## 4. Create an admin key
 
