@@ -217,8 +217,10 @@ func TestScreening_ManyMetersNotHeld(t *testing.T) {
 		if _, err := h.DB.Exec(`INSERT INTO customers (program_id, external_customer_id, affiliate_id) VALUES (1, ?, 1)`, cust); err != nil {
 			t.Fatal(err)
 		}
-		if err := ing.Ingest(ctx, usage.Event{Source: "api", ExternalID: "m-" + cust, CustomerExtID: cust,
-			Units: 100000, UnitType: "tokens", OccurredAt: day}); err != nil {
+		if err := ing.Ingest(ctx, usage.Event{
+			Source: "api", ExternalID: "m-" + cust, CustomerExtID: cust,
+			Units: 100000, UnitType: "tokens", OccurredAt: day,
+		}); err != nil {
 			t.Fatal(err)
 		}
 	}

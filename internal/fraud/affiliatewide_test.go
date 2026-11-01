@@ -376,8 +376,10 @@ type wideRule struct{}
 func (wideRule) Name() string { return "wide_rule" }
 
 func (wideRule) Evaluate(_ context.Context, q fraud.Query) ([]fraud.Verdict, error) {
-	return []fraud.Verdict{{Rule: "wide_rule", Subject: fmt.Sprint(q.AffiliateID), Reason: "test",
-		Action: fraud.ActionHold, AffiliateWide: true}}, nil
+	return []fraud.Verdict{{
+		Rule: "wide_rule", Subject: fmt.Sprint(q.AffiliateID), Reason: "test",
+		Action: fraud.ActionHold, AffiliateWide: true,
+	}}, nil
 }
 
 // AW5: engines built from an explicit ruleset (the Shopify pipeline) keep the
