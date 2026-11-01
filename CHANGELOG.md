@@ -4,6 +4,24 @@ All notable changes to affiliate-engine. Format: Keep a Changelog; versioning: s
 
 ## [Unreleased]
 
+## [v0.6.3] - 2026-11-01
+
+A security release. Upgrade is recommended. The database changes apply on start.
+
+### Security
+- **Partner-wide fraud holds.** When a rule about an affiliate's overall behaviour trips (such as sales velocity), the affiliate's other unpaid commissions are now held too, in one review group. Releasing one hold releases the group. These rules count real sales only: refunds and usage rows no longer count. The 24-hour pace check compares an affiliate with their own recent sales. Rules a third party can trip cheaply still hold only the sale in question.
+- **Usage commissions are fraud-screened**, in the same transaction that settles them.
+- **MLM totals respect refunds.** Refunded commissions leave MLM totals, override earnings and business volume.
+- **Billing health.** A webhook with a bad signature no longer marks billing as failing. It shows as a quiet note. Only a verified event that could not be processed counts as failing.
+- **Limits and headers.** Billing webhooks allow 3000 requests per client IP per minute. Login-link requests allow 20 per client IP per hour, with the same answer either way. The engine sends `Strict-Transport-Security` on HTTPS requests (`AE_HSTS=0` turns it off). API responses send `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer`.
+- **Leaderboard.** The public leaderboard lists active affiliates only.
+- **Input checks.** Bounds on program names, fixed commission values, rule priority and review notes. Very large ids are refused instead of wrapping. Long text is trimmed on a character boundary, which fixes a Postgres error on signup.
+
+### Privacy
+- The affiliate export includes payout details, fraud verdicts and holds.
+- Erase redacts personal details inside stored billing events.
+- New `gdpr-export-buyer` and `gdpr-erase-buyer` commands.
+
 ## [v0.6.2] - 2026-11-01
 
 A security release. Upgrade is recommended for every install. The database changes apply on start.

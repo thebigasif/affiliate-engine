@@ -158,6 +158,26 @@ func (e *Engine) repair(ctx context.Context, tp txPurchaser, ev commissions.Even
 	return nil
 }
 
+// ScreenUsage screens usage commission cid inside tx, the settlement
+// transaction that credited it (usage.Settler.Screen), the way
+// ProcessPurchase screens a purchase: verdicts and holds commit with the
+// credit, and a screening failure holds the commission (screening_error).
+// The query is marked Usage, so the partner-wide rules, which judge the
+// affiliate's sales stream, skip it. Without a screener it does nothing.
+func (e *Engine) ScreenUsage(ctx context.Context, tx *ledger.Tx, cid int64) error {
+	if e.screener == nil {
+		return nil
+	}
+	return e.screenFunc(commissions.Event{Source: usageSource})(ctx, tx, cid)
+}
+
+// usageSource marks the event ScreenUsage screens with (the usage
+// journals' source; no billing provider uses it).
+const usageSource = "usage_settlement"
+
+// isUsage reports whether ev is a usage settlement (ScreenUsage).
+func isUsage(ev commissions.Event) bool { return ev.Source == usageSource }
+
 // screenFunc screens one commission inside the transaction it is given.
 // It is idempotent: a commission already screened (screened_at) or
 // already held (any hold row, open or resolved) is left alone, so a
@@ -222,6 +242,7 @@ func (e *Engine) screen(ctx context.Context, ev commissions.Event, cid int64) er
 		CouponCode:   ev.CouponCode,
 		DryRun:       e.dryRun,
 		Now:          now,
+		Usage:        isUsage(ev),
 	}
 	var screenErr error
 	if lk, ok := e.screener.(CommissionLookup); ok {

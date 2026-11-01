@@ -13,3 +13,9 @@ CREATE INDEX IF NOT EXISTS ix_commissions_coupon ON commissions(coupon_code, cre
     WHERE coupon_code != '';
 
 ALTER TABLE commissions ADD COLUMN IF NOT EXISTS screened_at TIMESTAMPTZ;
+
+-- hold_group: holds placed together by one partner-wide verdict share a
+-- group (see fraud2_sqlite.sql). NULL = a hold on its own.
+ALTER TABLE commission_holds ADD COLUMN IF NOT EXISTS hold_group TEXT;
+CREATE INDEX IF NOT EXISTS ix_commission_holds_group ON commission_holds(hold_group)
+    WHERE hold_group IS NOT NULL AND resolved_at IS NULL;

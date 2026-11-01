@@ -20,22 +20,24 @@ import (
 // printUsage lists it, dispatchCLI's switch must wire every key (the
 // default branch fails loudly on a declared-but-unwired entry).
 var cliCommands = map[string]string{
-	"backup":          "snapshot the sqlite db (VACUUM INTO): [out.db] (sqlite only)",
-	"doctor":          "integrity report: ledger sum-0, payable vs commissions, drift, backlog (sqlite only)",
-	"restore":         "restore -from <backup.db> [--force] — verify + atomic swap (sqlite only)",
-	"migrate":         "apply the migration chain to -db (sqlite: or postgres://)",
-	"keygen":          "keygen -scope admin | -scope affiliate -affiliate N [-name X]",
-	"import":          "import an incumbent's CSV exports: -from S -csv F [-referrals F] [-commissions F] [-dry-run] | -undo N | -list",
-	"compare":         "side by side with an incumbent: -from S [-referrals F] [-commissions F] [-clicks F] [-date D]",
-	"bench":           "self-contained perf gates on a throwaway db",
-	"export-parquet":  "clicks + daily_agg -> parquet for a DuckDB sidecar (-out dir)",
-	"gdpr-export":     "subject data export: -affiliate N [-out file.json]",
-	"gdpr-erase":      "right-to-erasure: -affiliate N -yes (scrubs identity, keeps money rows)",
-	"screen-backfill": "fraud-screen commissions older releases never screened: [-dry-run] [-limit N] [-since YYYY-MM-DD] [-json]",
-	"test-conversion": "simulate a conversion end-to-end against -db (sqlite only)",
-	"demo-seed":       "build the live demo's sample program: -db sqlite:<path> [-reset] (sqlite only)",
-	"help":            "show subcommand usage",
-	"version":         "print the build version",
+	"backup":            "snapshot the sqlite db (VACUUM INTO): [out.db] (sqlite only)",
+	"doctor":            "integrity report: ledger sum-0, payable vs commissions, drift, backlog (sqlite only)",
+	"restore":           "restore -from <backup.db> [--force] — verify + atomic swap (sqlite only)",
+	"migrate":           "apply the migration chain to -db (sqlite: or postgres://)",
+	"keygen":            "keygen -scope admin | -scope affiliate -affiliate N [-name X]",
+	"import":            "import an incumbent's CSV exports: -from S -csv F [-referrals F] [-commissions F] [-dry-run] | -undo N | -list",
+	"compare":           "side by side with an incumbent: -from S [-referrals F] [-commissions F] [-clicks F] [-date D]",
+	"bench":             "self-contained perf gates on a throwaway db",
+	"export-parquet":    "clicks + daily_agg -> parquet for a DuckDB sidecar (-out dir)",
+	"gdpr-export":       "subject data export: -affiliate N [-out file.json]",
+	"gdpr-erase":        "right-to-erasure: -affiliate N -yes (scrubs identity, keeps money rows)",
+	"gdpr-export-buyer": "buyer data export: -email E | -customer ID [-out file.json]",
+	"gdpr-erase-buyer":  "buyer right-to-erasure: -email E | -customer ID -yes (anonymises, keeps amounts)",
+	"screen-backfill":   "fraud-screen commissions older releases never screened: [-dry-run] [-limit N] [-since YYYY-MM-DD] [-json]",
+	"test-conversion":   "simulate a conversion end-to-end against -db (sqlite only)",
+	"demo-seed":         "build the live demo's sample program: -db sqlite:<path> [-reset] (sqlite only)",
+	"help":              "show subcommand usage",
+	"version":           "print the build version",
 }
 
 func printUsage(w io.Writer) {
@@ -145,6 +147,18 @@ func dispatchCLI(rest []string, dsn string) (serve bool, exitCode int) {
 			target = "sqlite:affiliate-engine.db"
 		}
 		return exitWrap(runGDPRErase(target, subArgs))
+	case "gdpr-export-buyer":
+		target := dsn
+		if target == "" {
+			target = "sqlite:affiliate-engine.db"
+		}
+		return exitWrap(runGDPRExportBuyer(target, subArgs))
+	case "gdpr-erase-buyer":
+		target := dsn
+		if target == "" {
+			target = "sqlite:affiliate-engine.db"
+		}
+		return exitWrap(runGDPREraseBuyer(target, subArgs))
 	case "screen-backfill":
 		target := dsn
 		if target == "" {

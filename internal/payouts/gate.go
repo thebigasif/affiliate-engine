@@ -158,6 +158,14 @@ type ExportResult struct {
 	Batch   string
 	Payouts []ExportedPayout
 	Skipped int // requested payouts of this method the gate blocks now
+	// Blocked names each skipped payout and why (len(Blocked) == Skipped).
+	Blocked []BlockedPayout
+}
+
+// BlockedPayout is a payout the gate or ExportPayee left out of a file.
+type BlockedPayout struct {
+	PayoutID int64
+	Block    GateBlock
 }
 
 // ClaimForExport selects the payouts a PayPal or Wise file may list and
@@ -178,7 +186,35 @@ type ExportResult struct {
 // the gate and settles the ledger without running a rail.
 func (r *Runner) ClaimForExport(ctx context.Context, method string) (ExportResult, error) {
 	now := r.now().UTC()
-	res := ExportResult{Batch: fmt.Sprintf("%s-%s", method, now.Format("20060102T150405.000000000Z"))}
+	return r.export(ctx, method, fmt.Sprintf("%s-%s", method, now.Format("20060102T150405.000000000Z")), now, true, nil)
+}
+
+// ClaimForExportOnly is ClaimForExport limited to the given payouts:
+// the same rail filter, gate, ExportPayee and compare-and-set claim, for
+// a file the operator already holds (a preview). Payouts not in ids are
+// never looked at; ids that are not requested, unexported payouts of
+// this method are ignored.
+func (r *Runner) ClaimForExportOnly(ctx context.Context, method string, ids []int64) (ExportResult, error) {
+	now := r.now().UTC()
+	only := make(map[int64]bool, len(ids))
+	for _, id := range ids {
+		only[id] = true
+	}
+	return r.export(ctx, method, fmt.Sprintf("%s-%s", method, now.Format("20060102T150405.000000000Z")), now, true, only)
+}
+
+// PreviewExport lists what ClaimForExport would claim now (the same
+// rail filter, the same gate and ExportPayee) without claiming
+// anything: exported_at and export_batch stay unset, so the payouts
+// stay listable and payable. Batch is empty.
+func (r *Runner) PreviewExport(ctx context.Context, method string) (ExportResult, error) {
+	return r.export(ctx, method, "", r.now().UTC(), false, nil)
+}
+
+// export runs the claim (or, claim=false, the check) over the
+// candidates; only, when not nil, limits them to its ids.
+func (r *Runner) export(ctx context.Context, method, batch string, now time.Time, claim bool, only map[int64]bool) (ExportResult, error) {
+	res := ExportResult{Batch: batch}
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id FROM payouts
 		WHERE status = 'requested' AND method = ? AND exported_at IS NULL
@@ -193,6 +229,9 @@ func (r *Runner) ClaimForExport(ctx context.Context, method string) (ExportResul
 			_ = rows.Close()
 			return res, err
 		}
+		if only != nil && !only[id] {
+			continue
+		}
 		ids = append(ids, id)
 	}
 	_ = rows.Close()
@@ -200,12 +239,13 @@ func (r *Runner) ClaimForExport(ctx context.Context, method string) (ExportResul
 		return res, err
 	}
 	for _, id := range ids {
-		p, ok, err := r.claimOne(ctx, id, method, res.Batch, now)
+		p, block, err := r.claimOne(ctx, id, method, res.Batch, now, claim)
 		if err != nil {
 			return res, err
 		}
-		if !ok {
+		if block != nil {
 			res.Skipped++
+			res.Blocked = append(res.Blocked, BlockedPayout{PayoutID: id, Block: *block})
 			continue
 		}
 		if p != nil {
@@ -215,12 +255,13 @@ func (r *Runner) ClaimForExport(ctx context.Context, method string) (ExportResul
 	return res, nil
 }
 
-// claimOne claims one payout under its money locks. ok=false: the gate
-// blocks it. p=nil with ok=true: someone else claimed or approved it first.
-func (r *Runner) claimOne(ctx context.Context, id int64, method, batch string, now time.Time) (*ExportedPayout, bool, error) {
+// claimOne claims one payout under its money locks (claim=false only
+// checks it). A non-nil block: the gate or ExportPayee refuses it. p=nil
+// with no block: someone else claimed or approved it first.
+func (r *Runner) claimOne(ctx context.Context, id int64, method, batch string, now time.Time, claim bool) (*ExportedPayout, *GateBlock, error) {
 	unlock, err := r.lockPayout(ctx, id)
 	if err != nil {
-		return nil, false, err
+		return nil, nil, err
 	}
 	defer unlock()
 	var p ExportedPayout
@@ -232,37 +273,34 @@ func (r *Runner) claimOne(ctx context.Context, id int64, method, batch string, n
 		FROM payouts p JOIN affiliates a ON a.id = p.affiliate_id
 		WHERE p.id = ?`, id).
 		Scan(&p.PayoutID, &p.AffiliateID, &p.Email, &p.Amount, &p.Currency, &status, &m, &exported); err != nil {
-		return nil, false, fmt.Errorf("payouts: export lookup %d: %w", id, err)
+		return nil, nil, fmt.Errorf("payouts: export lookup %d: %w", id, err)
 	}
 	if status != "requested" || m != method || exported {
-		return nil, true, nil
+		return nil, nil, nil
 	}
 	block, err := r.gate(ctx, id, p.AffiliateID, p.Currency)
-	if err != nil {
-		return nil, false, err
-	}
-	if block != nil {
-		return nil, false, nil
+	if err != nil || block != nil {
+		return nil, block, err
 	}
 	if r.ExportPayee != nil {
 		payee, block, err := r.ExportPayee(ctx, id, p.AffiliateID, method, p.Email)
-		if err != nil {
-			return nil, false, err
-		}
-		if block != nil {
-			return nil, false, nil
+		if err != nil || block != nil {
+			return nil, block, err
 		}
 		p.Email = payee
+	}
+	if !claim {
+		return &p, nil, nil
 	}
 	res, err := r.db.ExecContext(ctx, `
 		UPDATE payouts SET exported_at = ?, export_batch = ?
 		WHERE id = ? AND status = 'requested' AND method = ? AND exported_at IS NULL`,
 		now.Format(time.RFC3339Nano), batch, id, method)
 	if err != nil {
-		return nil, false, fmt.Errorf("payouts: claim %d: %w", id, err)
+		return nil, nil, fmt.Errorf("payouts: claim %d: %w", id, err)
 	}
 	if n, _ := res.RowsAffected(); n != 1 {
-		return nil, true, nil
+		return nil, nil, nil
 	}
-	return &p, true, nil
+	return &p, nil, nil
 }

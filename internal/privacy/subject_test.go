@@ -232,6 +232,88 @@ func TestPrivacy_ExportFullCoverage(t *testing.T) {
 	}
 }
 
+// TestPrivacy_ExportPayoutDetailsAndFraud: the bundle carries the
+// affiliate's payout details (unsealed when a key is present) and the
+// fraud records about them, and nothing about the control affiliate.
+func TestPrivacy_ExportPayoutDetailsAndFraud(t *testing.T) {
+	db := seedWorld(t)
+	ctx := context.Background()
+	mustExec(t, db, `INSERT INTO affiliate_payout_details (affiliate_id, method, sealed) VALUES (1, 'paypal', ?), (2, 'wise', ?)`,
+		[]byte("sealed-1"), []byte("sealed-2"))
+
+	// Without an opener the row is listed, the fields stay sealed.
+	b, err := privacy.NewStore(db).Export(ctx, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b.PayoutDetails == nil || b.PayoutDetails["method"] != "paypal" || b.PayoutDetails["details_readable"] != false {
+		t.Fatalf("sealed payout details = %v", b.PayoutDetails)
+	}
+	if _, ok := b.PayoutDetails["paypal_email"]; ok {
+		t.Fatalf("plain field present without a key: %v", b.PayoutDetails)
+	}
+
+	opened := 0
+	open := func(affID int64, sealed []byte) (map[string]any, bool) {
+		opened++
+		if affID != 1 || string(sealed) != "sealed-1" {
+			return nil, false
+		}
+		return map[string]any{"method": "paypal", "paypal_email": "pay@subject.test"}, true
+	}
+	b, err = privacy.NewStore(db).WithPayoutOpener(open).Export(ctx, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if opened != 1 || b.PayoutDetails["paypal_email"] != "pay@subject.test" || b.PayoutDetails["details_readable"] != true {
+		t.Fatalf("opened payout details = %v (opened %d)", b.PayoutDetails, opened)
+	}
+
+	// A row that does not open is listed as not readable.
+	if _, err := db.Exec(`UPDATE affiliate_payout_details SET sealed = ? WHERE affiliate_id = 1`, []byte("damaged")); err != nil {
+		t.Fatal(err)
+	}
+	b, err = privacy.NewStore(db).WithPayoutOpener(open).Export(ctx, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b.PayoutDetails["details_readable"] != false {
+		t.Fatalf("damaged row = %v", b.PayoutDetails)
+	}
+
+	// Fraud: the verdicts keyed by the subject's id forms and coupon,
+	// and the hold on their commission. Verdicts about the control
+	// affiliate (even ones quoting the subject's email) stay out.
+	if len(b.FraudVerdicts) != 3 || b.Counters["fraud_verdicts"] != 3 {
+		t.Fatalf("fraud verdicts = %v", b.FraudVerdicts)
+	}
+	subjects := map[string]bool{}
+	for _, v := range b.FraudVerdicts {
+		subjects[fmt.Sprint(v["subject"])] = true
+	}
+	for _, want := range []string{"1", "affiliate:1", "savesubj"} {
+		if !subjects[want] {
+			t.Errorf("verdict with subject %q missing: %v", want, b.FraudVerdicts)
+		}
+	}
+	if len(b.FraudHolds) != 1 || b.Counters["fraud_holds"] != 1 {
+		t.Fatalf("fraud holds = %v", b.FraudHolds)
+	}
+	if b.FraudHolds[0]["note"] != "operator note" || !containsAny(fmt.Sprint(b.FraudHolds[0]["reason"]), "self-referral") {
+		t.Errorf("hold = %v", b.FraudHolds[0])
+	}
+
+	// An affiliate without details or fraud records exports cleanly.
+	mustExec(t, db, `INSERT INTO affiliates (id, email, name) VALUES (3, 'clean@x.test', 'Clean')`)
+	b, err = privacy.NewStore(db).WithPayoutOpener(open).Export(ctx, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b.PayoutDetails != nil || len(b.FraudVerdicts) != 0 || len(b.FraudHolds) != 0 {
+		t.Fatalf("clean affiliate bundle: %v %v %v", b.PayoutDetails, b.FraudVerdicts, b.FraudHolds)
+	}
+}
+
 // TestPrivacy_EraseScrubsEverything is the core Art. 17 contract: no
 // stored string may still identify the subject afterwards, while money
 // rows and the control affiliate survive untouched.

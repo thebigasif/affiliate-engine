@@ -273,6 +273,8 @@ func (e *Engine) Badges(ctx context.Context, affiliateID int64) ([]map[string]an
 }
 
 // Leaderboard returns top affiliates by XP (30 days of activity optional).
+// Only active affiliates are listed: the board is public, and a frozen or
+// removed partner must not keep showing there by name.
 func (e *Engine) Leaderboard(ctx context.Context, limit int) ([]map[string]any, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 20
@@ -283,6 +285,7 @@ func (e *Engine) Leaderboard(ctx context.Context, limit int) ([]map[string]any, 
 		            ELSE 'Affiliate #' || a.id END,
 		       t.xp, t.level
 		FROM xp_totals t JOIN affiliates a ON a.id = t.affiliate_id
+		WHERE a.status = 'active'
 		ORDER BY t.xp DESC LIMIT ?`, limit)
 	if err != nil {
 		return nil, err

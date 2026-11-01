@@ -5,6 +5,7 @@ AffiliateTracking reads its settings from environment variables. Every one is op
 | Variable | Purpose | Default |
 |---|---|---|
 | `AE_TOKEN_SECRET` | attribution signing secret (≥32 bytes) | generated + persisted |
+| `AE_HSTS` | `0` = do not send `Strict-Transport-Security`. When on, it is sent (180 days, this host only) on HTTPS requests only: direct TLS, or `X-Forwarded-Proto: https` from a trusted proxy | on |
 | `AE_ALLOWED_DEST` | redirect destination allowlist (`;`-separated suffixes) | `example.com` |
 | `AE_STRIPE_SECRET` | Stripe webhook signing secret (`whsec_...`) | unset (webhook route disabled) |
 | `AE_STRIPE_PRODUCTS` | Only sales of these Stripe products, prices or payment links earn commission (`prod_`, `price_`, `plink_` ids, comma separated). For a Stripe account that sells other things too | unset (every sale counts) |

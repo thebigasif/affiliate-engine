@@ -18,19 +18,24 @@ type ConversionTimeAnomaly struct{ DB *sql.DB }
 func (ConversionTimeAnomaly) Name() string { return "conversion_time_anomaly" }
 
 // Evaluate: affiliate flagged when (night conversions / total) exceeds the
-// program baseline + margin with a minimum sample.
+// program baseline + margin with a minimum sample. Only real sales count
+// (salesOnly): usage settlements run on a schedule and clawback rows land
+// when refunds do, and neither says when customers buy.
 // created_at is TEXT on SQLite and timestamptz on Postgres; as text both
 // put the UTC hour at characters 12-13 ("2026-09-30T15:..." and
 // "2026-09-30 15:...+00", the Postgres session being pinned to UTC).
 func (r ConversionTimeAnomaly) Evaluate(ctx context.Context, q Query) ([]Verdict, error) {
+	if q.Usage {
+		return nil, nil // settlement runs on a schedule, often at night
+	}
 	const minSample = 20
 	var night, total int64
 	err := Conn(ctx, r.DB).QueryRowContext(ctx, `
 		SELECT
-		  COALESCE(SUM(CASE WHEN CAST(SUBSTR(CAST(created_at AS TEXT), 12, 2) AS INTEGER) < 6 THEN 1 ELSE 0 END), 0),
+		  COALESCE(SUM(CASE WHEN CAST(SUBSTR(CAST(c.created_at AS TEXT), 12, 2) AS INTEGER) < 6 THEN 1 ELSE 0 END), 0),
 		  COUNT(*)
-		FROM commissions
-		WHERE affiliate_id = ? AND created_at > ?`,
+		FROM commissions c
+		WHERE c.affiliate_id = ? AND c.created_at > ? AND `+salesOnly,
 		q.AffiliateID, q.Now.UTC().Add(-7*24*time.Hour).Format(time.RFC3339)).Scan(&night, &total)
 	// Errors first: the old `err == ErrNoRows || total < minSample`
 	// shortcut read total == 0 on ANY error and silently passed.
@@ -46,9 +51,9 @@ func (r ConversionTimeAnomaly) Evaluate(ctx context.Context, q Query) ([]Verdict
 	var pNight, pTotal int64
 	if err := Conn(ctx, r.DB).QueryRowContext(ctx, `
 		SELECT
-		  COALESCE(SUM(CASE WHEN CAST(SUBSTR(CAST(created_at AS TEXT), 12, 2) AS INTEGER) < 6 THEN 1 ELSE 0 END), 0),
+		  COALESCE(SUM(CASE WHEN CAST(SUBSTR(CAST(c.created_at AS TEXT), 12, 2) AS INTEGER) < 6 THEN 1 ELSE 0 END), 0),
 		  COUNT(*)
-		FROM commissions WHERE created_at > ?`,
+		FROM commissions c WHERE c.created_at > ? AND `+salesOnly,
 		q.Now.UTC().Add(-7*24*time.Hour).Format(time.RFC3339)).Scan(&pNight, &pTotal); err != nil {
 		return nil, err
 	}
@@ -67,7 +72,8 @@ func (r ConversionTimeAnomaly) Evaluate(ctx context.Context, q Query) ([]Verdict
 			Subject: fmt.Sprint(q.AffiliateID),
 			Reason: fmt.Sprintf("%.0f%% of %d sales came between midnight and 6am UTC, against %.0f%% across the program (z=%.1f)",
 				nightShare*100, total, pShare*100, z),
-			Action: ActionHold,
+			Action:        ActionHold,
+			AffiliateWide: true,
 		}}, nil
 	}
 	return nil, nil

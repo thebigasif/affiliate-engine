@@ -139,3 +139,42 @@ func TestGamify_Leaderboard(t *testing.T) {
 		t.Fatalf("rank1=%v want affiliate 2", lb[0])
 	}
 }
+
+// The public leaderboard lists active affiliates only: a frozen or
+// removed partner drops off it, and comes back when made active again.
+func TestGamify_LeaderboardActiveOnly(t *testing.T) {
+	h, e := newEnv(t)
+	ctx := context.Background()
+	h.DB.Exec(`INSERT INTO affiliates (id, email, name) VALUES (3, 'z@t.dev', 'Zed')`)
+	commission(t, h, 30, 1, 500)
+	commission(t, h, 31, 2, 1500)
+	commission(t, h, 32, 3, 2500)
+	e.OnCommission(ctx, 1, 30, 500)
+	e.OnCommission(ctx, 2, 31, 1500)
+	e.OnCommission(ctx, 3, 32, 2500)
+	if _, err := h.DB.Exec(`UPDATE affiliates SET status = 'frozen' WHERE id = 2`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.DB.Exec(`UPDATE affiliates SET status = 'removed' WHERE id = 3`); err != nil {
+		t.Fatal(err)
+	}
+	ids := func() []int64 {
+		t.Helper()
+		lb, err := e.Leaderboard(ctx, 10)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out []int64
+		for _, row := range lb {
+			out = append(out, row["affiliate_id"].(int64))
+		}
+		return out
+	}
+	if got := ids(); len(got) != 1 || got[0] != 1 {
+		t.Fatalf("leaderboard=%v, want only active affiliate 1", got)
+	}
+	h.DB.Exec(`UPDATE affiliates SET status = 'active' WHERE id = 2`)
+	if got := ids(); len(got) != 2 || got[0] != 2 {
+		t.Fatalf("leaderboard after reactivation=%v, want [2 1]", got)
+	}
+}

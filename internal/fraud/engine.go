@@ -2,12 +2,18 @@
 // a flagged commission goes on hold (never auto-paid while under review).
 // Ruleset v1 from the threat model (research/final/security-threat-model.md §4).
 //
-// Hold scope (anti-weaponisation): a verdict holds ONLY the commission
-// under evaluation (Query.CommissionID) plus, for click-based rules, the
-// commissions credited from the flagged clicks (Verdict.ClickIDs). It
-// never blanket-holds every open commission of the affiliate — otherwise
-// anyone able to aim junk traffic or a lookalike purchase at a victim's
-// links could freeze the victim's whole balance. The account-freeze
+// Hold scope (anti-weaponisation): a verdict holds the commission under
+// evaluation (Query.CommissionID) plus, for click-based rules, the
+// commissions credited from the flagged clicks (Verdict.ClickIDs). A
+// partner-wide verdict (Verdict.AffiliateWide: a rule about the
+// affiliate's own conversion stream, such as sales velocity or geo
+// mismatch) also holds the affiliate's other unpaid, not yet exported
+// commissions, in one review group (commission_holds.hold_group), so the
+// owner reviews them together and a release frees the whole group.
+// Rules a third party can trip cheaply never set AffiliateWide: click-share
+// rules (junk traffic aimed at a victim's links) and duplicate_account
+// (anyone can sign up with a victim's alias) keep the narrow scope, so
+// nobody can freeze a victim's whole balance with them. The account-freeze
 // action is honored only for the high-confidence coupon_hijack rule and
 // lands on the coupon's owner; any other ActionFreeze degrades to a hold.
 package fraud
@@ -30,6 +36,11 @@ type Verdict struct {
 	// ClickIDs are the flagged clicks of a click-based rule: commissions
 	// credited from these clicks are held alongside the evaluated one.
 	ClickIDs []string
+	// AffiliateWide marks a verdict about the affiliate's overall
+	// behaviour rather than one sale. Outside dry-run it also holds the
+	// affiliate's other unpaid, not yet exported commissions in one review
+	// group (see the package comment for which rules may set it).
+	AffiliateWide bool
 }
 
 // Action is what the verdict demands.
@@ -61,6 +72,11 @@ type Query struct {
 	CouponCode string
 	DryRun     bool
 	Now        time.Time
+	// Usage: the evaluated commission is a usage (metered) settlement.
+	// The partner-wide rules judge the affiliate's sales stream and skip
+	// it; that stream is judged when its own sales are screened and on
+	// the sweep.
+	Usage bool
 }
 
 func (q Query) program() int64 {
@@ -78,18 +94,28 @@ const maxClickHold = 200
 type Engine struct {
 	db    *sql.DB
 	rules []Rule
+	// affiliateWideHolds: an AffiliateWide verdict also holds the
+	// affiliate's other unpaid commissions (holdUnpaid).
+	affiliateWideHolds bool
 }
 
-// NewEngine registers the default ruleset.
+// NewEngine registers the default ruleset, with partner-wide holds on.
 func NewEngine(db *sql.DB) *Engine {
-	return &Engine{db: db, rules: defaultRules(db)}
+	return &Engine{db: db, rules: defaultRules(db), affiliateWideHolds: true}
 }
 
 // NewEngineWithRules builds an engine over an explicit ruleset (tests,
-// shadow rulesets).
+// shadow rulesets). Partner-wide holds are off until
+// SetAffiliateWideHolds turns them on: the Shopify pipeline builds its
+// engines here and has its own release paths, which do not release a
+// hold group yet.
 func NewEngineWithRules(db *sql.DB, rules ...Rule) *Engine {
 	return &Engine{db: db, rules: rules}
 }
+
+// SetAffiliateWideHolds turns partner-wide holds on or off (see
+// Verdict.AffiliateWide). Call before the engine is shared.
+func (e *Engine) SetAffiliateWideHolds(on bool) { e.affiliateWideHolds = on }
 
 // Rules returns a copy of the registered ruleset.
 func (e *Engine) Rules() []Rule { return append([]Rule(nil), e.rules...) }
@@ -182,11 +208,15 @@ func (e *Engine) record(ctx context.Context, v Verdict, dry bool) error {
 func (e *Engine) apply(ctx context.Context, vs []Verdict, q Query) error {
 	var rules, flagged, freezeCoupons []string
 	seen := map[string]bool{}
+	affiliateWide := false
 	for _, v := range vs {
 		if v.Action == ActionNone {
 			continue
 		}
 		rules = append(rules, v.Rule)
+		if v.AffiliateWide {
+			affiliateWide = true
+		}
 		for _, id := range v.ClickIDs {
 			if id != "" && !seen[id] && len(flagged) < maxClickHold {
 				seen[id] = true
@@ -208,8 +238,21 @@ func (e *Engine) apply(ctx context.Context, vs []Verdict, q Query) error {
 	}
 	reason := "fraud review: " + strings.Join(rules, ",")
 	var errs []error
+	group := ""
+	if affiliateWide && e.affiliateWideHolds && q.AffiliateID != 0 {
+		g, err := e.holdGroup(ctx, q)
+		if err != nil {
+			errs = append(errs, err)
+		}
+		group = g
+	}
 	if q.CommissionID != 0 {
-		if err := e.HoldCommission(ctx, q.CommissionID, reason); err != nil {
+		if err := e.holdCommission(ctx, q.CommissionID, reason, group); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if group != "" {
+		if err := e.holdUnpaid(ctx, q.AffiliateID, reason, group); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -275,15 +318,150 @@ func (e *Engine) freezeCouponOwners(ctx context.Context, code string) ([]int64, 
 // open, released or upheld — is left alone (a reviewer's release is not
 // silently re-opened, and the commission_holds primary key never trips).
 func (e *Engine) HoldCommission(ctx context.Context, commissionID int64, reason string) error {
+	return e.holdCommission(ctx, commissionID, reason, "")
+}
+
+// holdCommission is HoldCommission in review group group ("" = none). An
+// open hold the commission already has, outside any group, joins group.
+func (e *Engine) holdCommission(ctx context.Context, commissionID int64, reason, group string) error {
+	var g any
+	if group != "" {
+		g = group
+	}
 	if _, err := Conn(ctx, e.db).ExecContext(ctx, `
-		INSERT INTO commission_holds (commission_id, reason)
-		SELECT c.id, CAST(? AS TEXT) FROM commissions c
+		INSERT INTO commission_holds (commission_id, reason, hold_group)
+		SELECT c.id, CAST(? AS TEXT), CAST(? AS TEXT) FROM commissions c
 		WHERE c.id = ? AND c.status IN ('pending','approved')
 		  AND NOT EXISTS (SELECT 1 FROM commission_holds h WHERE h.commission_id = c.id)`,
-		reason, commissionID); err != nil {
+		reason, g, commissionID); err != nil {
 		return fmt.Errorf("fraud: hold commission %d: %w", commissionID, err)
 	}
+	if group == "" {
+		return nil
+	}
+	if _, err := Conn(ctx, e.db).ExecContext(ctx, `
+		UPDATE commission_holds SET hold_group = ?
+		WHERE commission_id = ? AND resolved_at IS NULL AND hold_group IS NULL`,
+		group, commissionID); err != nil {
+		return fmt.Errorf("fraud: group hold of commission %d: %w", commissionID, err)
+	}
 	return nil
+}
+
+// holdGroup names the review group a partner-wide verdict holds into: the
+// evaluated commission's open group, else the affiliate's newest open
+// group (one review case per affiliate while it is open), else a new one.
+func (e *Engine) holdGroup(ctx context.Context, q Query) (string, error) {
+	var g sql.NullString
+	if q.CommissionID != 0 {
+		err := Conn(ctx, e.db).QueryRowContext(ctx, `
+			SELECT hold_group FROM commission_holds
+			WHERE commission_id = ? AND resolved_at IS NULL AND hold_group IS NOT NULL`,
+			q.CommissionID).Scan(&g)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return "", fmt.Errorf("fraud: hold group of commission %d: %w", q.CommissionID, err)
+		}
+		if g.Valid && g.String != "" {
+			return g.String, nil
+		}
+	}
+	err := Conn(ctx, e.db).QueryRowContext(ctx, `
+		SELECT h.hold_group FROM commission_holds h
+		JOIN commissions c ON c.id = h.commission_id
+		WHERE c.affiliate_id = ? AND h.resolved_at IS NULL AND h.hold_group IS NOT NULL
+		ORDER BY h.created_at DESC, h.commission_id DESC
+		LIMIT 1`, q.AffiliateID).Scan(&g)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return "", fmt.Errorf("fraud: hold group of affiliate %d: %w", q.AffiliateID, err)
+	}
+	if g.Valid && g.String != "" {
+		return g.String, nil
+	}
+	if q.CommissionID != 0 {
+		return fmt.Sprintf("affiliate:%d:commission:%d", q.AffiliateID, q.CommissionID), nil
+	}
+	return fmt.Sprintf("affiliate:%d:sweep:%d", q.AffiliateID, time.Now().UnixNano()), nil
+}
+
+// holdUnpaid holds the affiliate's other unpaid commissions (pending or
+// approved, positive) that are not yet in an exported or executing payout,
+// with reason, in group. A commission with any hold row (open, released or
+// upheld) is left alone: a reviewer's release is not re-opened. A
+// commission in a staged payout that is not exported yet is held too; the
+// payout gate then blocks that payout until the hold is resolved.
+func (e *Engine) holdUnpaid(ctx context.Context, affiliateID int64, reason, group string) error {
+	if _, err := Conn(ctx, e.db).ExecContext(ctx, `
+		INSERT INTO commission_holds (commission_id, reason, hold_group)
+		SELECT c.id, CAST(? AS TEXT), CAST(? AS TEXT) FROM commissions c
+		WHERE c.affiliate_id = ? AND c.status IN ('pending','approved') AND c.amount > 0
+		  AND NOT EXISTS (SELECT 1 FROM commission_holds h WHERE h.commission_id = c.id)
+		  AND NOT EXISTS (SELECT 1 FROM payout_lines pl JOIN payouts p ON p.id = pl.payout_id
+		                  WHERE pl.commission_id = c.id
+		                    AND (p.exported_at IS NOT NULL OR p.status IN ('approved','processing','paid')))`,
+		reason, group, affiliateID); err != nil {
+		return fmt.Errorf("fraud: partner-wide hold of affiliate %d: %w", affiliateID, err)
+	}
+	return nil
+}
+
+// ErrNoOpenHold: the commission has no open hold to release.
+var ErrNoOpenHold = errors.New("fraud: no open hold for commission")
+
+// ReleaseHold releases the commission's open hold and every other open
+// hold in its review group, in one transaction, and returns the ids of
+// the other commissions it released. note replaces each hold's note when
+// it is not empty. ErrNoOpenHold: the commission had no open hold.
+func ReleaseHold(ctx context.Context, db *sql.DB, commissionID int64, note string) (alsoReleased []int64, err error) {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("fraud: release %d: %w", commissionID, err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	var group sql.NullString
+	if err := tx.QueryRowContext(ctx, `
+		SELECT hold_group FROM commission_holds
+		WHERE commission_id = ? AND resolved_at IS NULL`, commissionID).Scan(&group); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNoOpenHold
+		}
+		return nil, fmt.Errorf("fraud: release %d: %w", commissionID, err)
+	}
+	rows, err := tx.QueryContext(ctx, `
+		UPDATE commission_holds SET resolved_at = ?, resolution = 'released',
+		       note = COALESCE(NULLIF(?, ''), note)
+		WHERE resolved_at IS NULL
+		  AND (commission_id = ? OR (hold_group IS NOT NULL AND hold_group = ?))
+		RETURNING commission_id`,
+		time.Now().UTC().Format(time.RFC3339), note, commissionID, group)
+	if err != nil {
+		return nil, fmt.Errorf("fraud: release %d: %w", commissionID, err)
+	}
+	self := false
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			_ = rows.Close()
+			return nil, fmt.Errorf("fraud: release %d: %w", commissionID, err)
+		}
+		if id == commissionID {
+			self = true
+			continue
+		}
+		alsoReleased = append(alsoReleased, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, fmt.Errorf("fraud: release %d: %w", commissionID, err)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("fraud: release %d: %w", commissionID, err)
+	}
+	if !self {
+		return nil, ErrNoOpenHold
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("fraud: release %d: %w", commissionID, err)
+	}
+	return alsoReleased, nil
 }
 
 // CommissionContext is what screening needs to evaluate a credited
@@ -344,8 +522,8 @@ const minClickRuleConversions = 3
 func enoughConversions(ctx context.Context, db Querier, affiliateID int64, since time.Time) (bool, error) {
 	var n int64
 	if err := db.QueryRowContext(ctx, `
-		SELECT COUNT(*) FROM commissions
-		WHERE affiliate_id = ? AND amount > 0 AND created_at > ?`,
+		SELECT COUNT(*) FROM commissions c
+		WHERE c.affiliate_id = ? AND c.created_at > ? AND `+salesOnly,
 		affiliateID, since.UTC().Format(time.RFC3339)).Scan(&n); err != nil {
 		return false, err
 	}
@@ -486,27 +664,132 @@ func (r ClickVelocity) Evaluate(ctx context.Context, q Query) ([]Verdict, error)
 
 // --- Rule 3: conversion velocity — suspicious fast conversions for affiliate ---
 
+// ConversionVelocity trips on a burst (ConversionsPerHourLimit sales in
+// the last hour) or on a pace far above the affiliate's own recent days
+// (see dailySalesLimit). Only real sales count (salesOnly): usage
+// settlements and refund clawback rows never do, so neither metered
+// customers nor a refund run can trip it. After the owner releases a
+// conversion_velocity hold, the same trigger does not hold again inside
+// its window (an hour for the burst, a day for the pace), so a busy but
+// genuine affiliate is not re-held on every new sale. Both are
+// partner-wide verdicts.
 type ConversionVelocity struct{ db *sql.DB }
+
+// ConversionsPerHourLimit is the one-hour burst that trips
+// conversion_velocity.
+const ConversionsPerHourLimit = 30
+
+// ConversionsPerDayFloor is the least the rolling 24-hour count must
+// reach before the pace check can trip: half the hourly limit, every
+// hour of a day.
+const ConversionsPerDayFloor = ConversionsPerHourLimit * 24 / 2
+
+// paceMultiple: the pace check trips at this many times the affiliate's
+// average daily sales over the 7 days before the last 24 hours.
+const paceMultiple = 2
 
 func (ConversionVelocity) Name() string { return "conversion_velocity" }
 
 func (r ConversionVelocity) Evaluate(ctx context.Context, q Query) ([]Verdict, error) {
-	var n int
-	err := Conn(ctx, r.db).QueryRowContext(ctx, `
-		SELECT COUNT(*) FROM commissions
-		WHERE affiliate_id = ? AND created_at > ?`,
-		q.AffiliateID, q.Now.UTC().Add(-time.Hour).Format(time.RFC3339)).Scan(&n)
+	if q.Usage {
+		return nil, nil
+	}
+	db := Conn(ctx, r.db)
+	released, err := lastReleased(ctx, db, q.AffiliateID, "conversion_velocity")
 	if err != nil {
 		return nil, err
 	}
-	if n >= 30 {
+	n, err := countSales(ctx, db, q.AffiliateID, q.Now.Add(-time.Hour), q.Now)
+	if err != nil {
+		return nil, err
+	}
+	if n >= ConversionsPerHourLimit && !released.After(q.Now.Add(-time.Hour)) {
 		return []Verdict{{
 			Rule: "conversion_velocity", Subject: fmt.Sprint(q.AffiliateID),
-			Reason: fmt.Sprintf("%d sales credited within one hour", n),
-			Action: ActionHold,
+			Reason:        fmt.Sprintf("%d sales credited within one hour", n),
+			Action:        ActionHold,
+			AffiliateWide: true,
+		}}, nil
+	}
+	if released.After(q.Now.Add(-24 * time.Hour)) {
+		return nil, nil
+	}
+	day, err := countSales(ctx, db, q.AffiliateID, q.Now.Add(-24*time.Hour), q.Now)
+	if err != nil {
+		return nil, err
+	}
+	if day < ConversionsPerDayFloor {
+		return nil, nil
+	}
+	limit, err := dailySalesLimit(ctx, db, q.AffiliateID, q.Now)
+	if err != nil {
+		return nil, err
+	}
+	if day >= limit {
+		return []Verdict{{
+			Rule: "conversion_velocity", Subject: fmt.Sprint(q.AffiliateID),
+			Reason:        fmt.Sprintf("%d sales credited in the last 24 hours, more than %d times the usual daily pace", day, paceMultiple),
+			Action:        ActionHold,
+			AffiliateWide: true,
 		}}, nil
 	}
 	return nil, nil
+}
+
+// dailySalesLimit is the 24-hour count that trips the pace check:
+// paceMultiple times the affiliate's average daily sales over the 7 days
+// before the last 24 hours, and never below ConversionsPerDayFloor. A new
+// affiliate is judged against the floor; an established one against its
+// own normal.
+func dailySalesLimit(ctx context.Context, db Querier, affiliateID int64, now time.Time) (int64, error) {
+	prior, err := countSales(ctx, db, affiliateID, now.Add(-8*24*time.Hour), now.Add(-24*time.Hour))
+	if err != nil {
+		return 0, err
+	}
+	limit := paceMultiple * prior / 7
+	if limit < ConversionsPerDayFloor {
+		limit = ConversionsPerDayFloor
+	}
+	return limit, nil
+}
+
+// salesOnly selects real sales among commissions c: credited purchases,
+// not refund clawback rows (negative, with a parent) and not usage
+// settlements (their journal's source is usage_settlement).
+const salesOnly = `c.amount > 0 AND c.parent_commission_id IS NULL
+	AND NOT EXISTS (SELECT 1 FROM journal_entries j
+	                WHERE j.id = c.journal_id AND j.source = 'usage_settlement')`
+
+// countSales counts the affiliate's sales created in (from, to].
+func countSales(ctx context.Context, db Querier, affiliateID int64, from, to time.Time) (int64, error) {
+	var n int64
+	err := db.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM commissions c
+		WHERE c.affiliate_id = ? AND c.created_at > ? AND c.created_at <= ? AND `+salesOnly,
+		affiliateID, from.UTC().Format(time.RFC3339), to.UTC().Format(time.RFC3339Nano)).Scan(&n)
+	return n, err
+}
+
+// lastReleased is when the owner last released a hold of the affiliate
+// whose reason names rule (zero time = never).
+func lastReleased(ctx context.Context, db Querier, affiliateID int64, rule string) (time.Time, error) {
+	var at sql.NullString
+	if err := db.QueryRowContext(ctx, `
+		SELECT CAST(MAX(h.resolved_at) AS TEXT) FROM commission_holds h
+		JOIN commissions c ON c.id = h.commission_id
+		WHERE c.affiliate_id = ? AND h.resolution = 'released' AND h.reason LIKE ?`,
+		affiliateID, "%"+rule+"%").Scan(&at); err != nil {
+		return time.Time{}, err
+	}
+	if !at.Valid || at.String == "" {
+		return time.Time{}, nil
+	}
+	for _, layout := range []string{time.RFC3339Nano, "2006-01-02 15:04:05.999999999-07", "2006-01-02 15:04:05.999999999Z07:00", "2006-01-02 15:04:05"} {
+		if t, err := time.Parse(layout, at.String); err == nil {
+			return t, nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("fraud: unreadable resolved_at %q", at.String)
 }
 
 // --- Rule 4: coupon-hijack pattern — one coupon redeemed by many distinct

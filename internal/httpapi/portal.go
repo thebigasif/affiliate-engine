@@ -14,6 +14,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -331,18 +332,13 @@ func (a *api) handleGamifyLeaderboard(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"leaderboard": lb})
 }
 
+// parseInt64 parses a positive decimal id. strconv refuses a value past
+// int64 instead of wrapping it round to some other id.
 func parseInt64(s string) (int64, error) {
-	var n int64
-	if s == "" {
-		return 0, fmt.Errorf("empty")
+	if s == "" || strings.TrimLeft(s, "0123456789") != "" {
+		return 0, fmt.Errorf("not numeric")
 	}
-	for _, c := range s {
-		if c < '0' || c > '9' {
-			return 0, fmt.Errorf("not numeric")
-		}
-		n = n*10 + int64(c-'0')
-	}
-	return n, nil
+	return strconv.ParseInt(s, 10, 64)
 }
 
 // --- admin routes ---
@@ -519,10 +515,18 @@ func (a *api) handlePortalReview(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// loginLinksPerIPPerHour caps login-link requests from one client IP per
+// hour, on top of the one-per-address limit: without it one sender could
+// make the program email any number of different addresses. 20 an hour is
+// far above what one partner, or one office of partners, ever needs.
+const loginLinksPerIPPerHour = 20
+
 // handlePortalLoginLink: POST /portal/login-link {email}. An active
 // affiliate gets a one-time login link (1 hour) by email. The answer is
 // the same whether or not the email belongs to an affiliate (no account
-// enumeration), and one address gets at most one email per 5 minutes.
+// enumeration), one address gets at most one email per 5 minutes, and one
+// client IP may ask at most loginLinksPerIPPerHour times an hour. A refused
+// request gets the same "sent" answer, so neither limit is visible.
 func (a *api) handlePortalLoginLink(w http.ResponseWriter, r *http.Request) {
 	if !a.deps.MailOn {
 		apiError(w, http.StatusServiceUnavailable, "this program doesn't send emails; ask the program owner for a login link")
@@ -541,7 +545,7 @@ func (a *api) handlePortalLoginLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sent := map[string]any{"status": "sent"}
-	if !a.loginLinks.allow(email, time.Now()) {
+	if !a.loginLinkIPs.allow("loginlink:"+ClientIP(r, a.deps.TrustedProxies)) || !a.loginLinks.allow(email, time.Now()) {
 		writeJSON(w, http.StatusOK, sent)
 		return
 	}
@@ -591,9 +595,15 @@ func (l *loginLinkLimiter) allow(email string, now time.Time) bool {
 	return true
 }
 
+// trimTo cuts s to at most n bytes, backing off to a character boundary:
+// a cut through a multi-byte character would store invalid UTF-8, which
+// Postgres refuses (the request then failed with a 500).
 func trimTo(s string, n int) string {
-	if len(s) > n {
-		return s[:n]
+	if len(s) <= n {
+		return s
 	}
-	return s
+	for n > 0 && !utf8.RuneStart(s[n]) {
+		n--
+	}
+	return s[:n]
 }

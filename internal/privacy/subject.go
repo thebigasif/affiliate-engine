@@ -15,14 +15,46 @@ import (
 // ErrUnknownAffiliate is returned by Export/Erase for a nonexistent id.
 var ErrUnknownAffiliate = errors.New("privacy: unknown affiliate")
 
+// ErrPayoutDetailsSealed is returned by Erase, before anything changes,
+// when the affiliate has payout details the store cannot open (no
+// opener, or a rotated secret): their payout emails could not be
+// redacted from stored events. AllowSealedPayout overrides it.
+var ErrPayoutDetailsSealed = errors.New("privacy: payout details cannot be opened, so payout emails cannot be redacted from stored events")
+
 // Store runs subject-rights operations against the repo handle.
 type Store struct {
-	db  *sql.DB
-	now func() time.Time
+	db         *sql.DB
+	now        func() time.Time
+	openPayout PayoutOpener
+	// allowSealedPayout lets Erase run when payout details do not open;
+	// the report then lists payout identifiers as not redacted.
+	allowSealedPayout bool
 }
 
 // NewStore builds the subject-rights store.
 func NewStore(db *sql.DB) *Store { return &Store{db: db, now: time.Now} }
+
+// PayoutOpener unseals one affiliate's stored payout details into plain
+// fields (method, paypal_email, wise_email, bank). The sealing key lives
+// with the HTTP layer (httpapi.PayoutDetailsOpener), so the store only
+// receives this function. ok is false when the row does not open (a
+// rotated secret, a damaged row).
+type PayoutOpener func(affiliateID int64, sealed []byte) (fields map[string]any, ok bool)
+
+// AllowSealedPayout lets Erase proceed when the affiliate's payout
+// details cannot be opened. The sealed row is still deleted; only the
+// copies of those identifiers inside stored events stay.
+func (s *Store) AllowSealedPayout() *Store {
+	s.allowSealedPayout = true
+	return s
+}
+
+// WithPayoutOpener lets Export include the affiliate's payout details in
+// plain text. Without it they are listed as not readable.
+func (s *Store) WithPayoutOpener(open PayoutOpener) *Store {
+	s.openPayout = open
+	return s
+}
 
 // ExportBundle is the machine-readable GDPR Art. 15/20 data export for
 // one data subject (the affiliate). Money rows carry no PII beyond ids
@@ -41,7 +73,16 @@ type ExportBundle struct {
 	Badges       []map[string]any `json:"badges"`
 	XPTotal      map[string]any   `json:"xp_total"`
 	TaxDocuments []map[string]any `json:"tax_documents"`
-	Counters     map[string]int64 `json:"counters"`
+	// PayoutDetails is where the affiliate asked to be paid, unsealed:
+	// it is their own data. details_readable is false when the store
+	// had no key or the sealed row did not open.
+	PayoutDetails map[string]any `json:"payout_details"`
+	// FraudVerdicts are the fraud rule results about the affiliate (by
+	// id, or by one of their codes or coupons). FraudHolds are the holds
+	// placed on their commissions, with the reason and operator note.
+	FraudVerdicts []map[string]any `json:"fraud_verdicts"`
+	FraudHolds    []map[string]any `json:"fraud_holds"`
+	Counters      map[string]int64 `json:"counters"`
 }
 
 // Export collects every stored row attributable to the affiliate. It is
@@ -103,16 +144,68 @@ func (s *Store) Export(ctx context.Context, affiliateID int64) (*ExportBundle, e
 		FROM tax_documents WHERE affiliate_id = ? ORDER BY id`, affiliateID); err != nil {
 		return nil, err
 	}
+	if b.PayoutDetails, err = s.payoutDetails(ctx, affiliateID); err != nil {
+		return nil, err
+	}
+	// Verdicts on other affiliates that quote this affiliate's email are
+	// left out: their subject is another person.
+	if b.FraudVerdicts, err = s.many(ctx, `SELECT id, rule, subject, reason, action, dry_run, resolved, created_at
+		FROM fraud_verdicts
+		WHERE subject IN (?, ?)
+		   OR subject IN (SELECT code FROM affiliate_codes WHERE affiliate_id = ?)
+		   OR subject IN (SELECT code FROM coupons WHERE affiliate_id = ?)
+		ORDER BY id`,
+		fmt.Sprint(affiliateID), fmt.Sprintf("affiliate:%d", affiliateID), affiliateID, affiliateID); err != nil {
+		return nil, err
+	}
+	if b.FraudHolds, err = s.many(ctx, `SELECT h.commission_id, h.reason, h.note, h.created_at, h.resolved_at, h.resolution
+		FROM commission_holds h JOIN commissions c ON c.id = h.commission_id
+		WHERE c.affiliate_id = ? ORDER BY h.commission_id`, affiliateID); err != nil {
+		return nil, err
+	}
 	b.Counters = map[string]int64{
-		"clicks":       int64(len(b.Clicks)),
-		"attributions": int64(len(b.Attributions)),
-		"customers":    int64(len(b.Customers)),
-		"commissions":  int64(len(b.Commissions)),
-		"payouts":      int64(len(b.Payouts)),
-		"codes":        int64(len(b.Codes)),
-		"coupons":      int64(len(b.Coupons)),
+		"clicks":         int64(len(b.Clicks)),
+		"attributions":   int64(len(b.Attributions)),
+		"customers":      int64(len(b.Customers)),
+		"commissions":    int64(len(b.Commissions)),
+		"payouts":        int64(len(b.Payouts)),
+		"codes":          int64(len(b.Codes)),
+		"coupons":        int64(len(b.Coupons)),
+		"fraud_verdicts": int64(len(b.FraudVerdicts)),
+		"fraud_holds":    int64(len(b.FraudHolds)),
 	}
 	return b, nil
+}
+
+// payoutDetails returns the affiliate's payout details row with the
+// sealed fields opened, or nil when they never set any.
+func (s *Store) payoutDetails(ctx context.Context, affiliateID int64) (map[string]any, error) {
+	m, err := s.one(ctx, `SELECT method, updated_at, cooling_until
+		FROM affiliate_payout_details WHERE affiliate_id = ?`, affiliateID)
+	if err != nil || m == nil {
+		return m, err
+	}
+	var sealed []byte
+	if err := s.db.QueryRowContext(ctx, `SELECT sealed FROM affiliate_payout_details WHERE affiliate_id = ?`,
+		affiliateID).Scan(&sealed); err != nil {
+		return nil, err
+	}
+	m["details_readable"] = false
+	if s.openPayout == nil {
+		return m, nil
+	}
+	fields, ok := s.openPayout(affiliateID, sealed)
+	if !ok {
+		return m, nil
+	}
+	for k, v := range fields {
+		if k == "method" {
+			continue // the plain column is the source of truth
+		}
+		m[k] = v
+	}
+	m["details_readable"] = true
+	return m, nil
 }
 
 // JSON renders the bundle as the delivery artifact.
@@ -121,17 +214,23 @@ func (b *ExportBundle) JSON() ([]byte, error) { return json.MarshalIndent(b, "",
 // EraseReport documents what an erase did — the operator's Art. 30
 // record and the subject's Art. 19 receipt.
 type EraseReport struct {
-	AffiliateID   int64            `json:"affiliate_id"`
-	At            string           `json:"at"`
-	Scrubbed      map[string]int64 `json:"scrubbed"`
-	Deleted       map[string]int64 `json:"deleted"`
-	PreservedNote string           `json:"preserved_note"`
+	AffiliateID int64            `json:"affiliate_id"`
+	At          string           `json:"at"`
+	Scrubbed    map[string]int64 `json:"scrubbed"`
+	Deleted     map[string]int64 `json:"deleted"`
+	// RedactedInPayloads lists the identifier kinds searched for and
+	// removed from stored event payloads; NotRedactedInPayloads lists
+	// those that could not be, with the reason.
+	RedactedInPayloads    []string `json:"redacted_in_payloads"`
+	NotRedactedInPayloads []string `json:"not_redacted_in_payloads,omitempty"`
+	PreservedNote         string   `json:"preserved_note"`
 }
 
 const preservedNote = "ledger journals, commissions, payouts, daily aggregates and MLM " +
 	"structure are financial records and remain booked under the pseudonymous affiliate " +
-	"id; raw_events/webhook_events payloads are provider billing records (replay-dedupe " +
-	"contract); all identity fields attributable to the subject were scrubbed"
+	"id; raw_events/webhook_events rows keep their event ids (replay-dedupe contract), " +
+	"with the identifiers in redacted_in_payloads removed from the payload and provider " +
+	"customer ids kept; identity columns attributable to the subject were scrubbed"
 
 // Erase executes the right-to-erasure for one affiliate: identity is
 // scrubbed in place, money rows preserved with pseudonymous ids. Every
@@ -141,8 +240,8 @@ const preservedNote = "ledger journals, commissions, payouts, daily aggregates a
 func (s *Store) Erase(ctx context.Context, affiliateID int64) (*EraseReport, error) {
 	// The OLD email must be read BEFORE rotation: the application row is
 	// keyed by it, and every later statement matches on scrub-state.
-	var oldEmail string
-	err := s.db.QueryRowContext(ctx, `SELECT email FROM affiliates WHERE id = ?`, affiliateID).Scan(&oldEmail)
+	var oldEmail, oldName string
+	err := s.db.QueryRowContext(ctx, `SELECT email, COALESCE(name, '') FROM affiliates WHERE id = ?`, affiliateID).Scan(&oldEmail, &oldName)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrUnknownAffiliate
 	}
@@ -161,8 +260,17 @@ func (s *Store) Erase(ctx context.Context, affiliateID int64) (*EraseReport, err
 		Scrubbed:      map[string]int64{},
 		Deleted:       map[string]int64{},
 		PreservedNote: preservedNote,
+
+		RedactedInPayloads: []string{},
 	}
 	nowStr := rep.At
+
+	// The identifiers to redact from stored payloads are read before the
+	// rows that hold them (coupons, payout details) are deleted below.
+	sc, err := s.affiliateScrubber(ctx, tx, affiliateID, oldEmail, oldName, rep)
+	if err != nil {
+		return nil, err
+	}
 
 	// 1) Portal application (pre-identity row, keyed by the OLD email).
 	if n, err := exec(tx, ctx, "affiliate_applications",
@@ -377,6 +485,22 @@ func (s *Store) Erase(ctx context.Context, affiliateID int64) (*EraseReport, err
 	}
 	rep.Scrubbed["import_undos"] = nUndo
 
+	// 14b) Stored billing events and outbox rows: the subject's
+	// identifiers are redacted inside the JSON payloads. Event ids stay,
+	// so a redelivered event is still recognised as a duplicate.
+	nPayload, err := sc.scrubPayloads(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+	for table, n := range nPayload {
+		rep.Scrubbed[table] = n
+	}
+	nNotice, err := scrubPayoutChangeNotices(ctx, tx, affiliateID)
+	if err != nil {
+		return nil, err
+	}
+	rep.Scrubbed["outbox_events"] += nNotice
+
 	// 15) The erasure itself is auditable (Art. 30). audit_log is
 	// INSERT-only. The record is appended only when this call actually
 	// erased something (the affiliates scrub is 1 exactly on the first
@@ -395,6 +519,82 @@ func (s *Store) Erase(ctx context.Context, affiliateID int64) (*EraseReport, err
 		return nil, fmt.Errorf("privacy: erase commit: %w", err)
 	}
 	return rep, nil
+}
+
+// affiliateScrubber collects the affiliate's identifiers for payload
+// redaction: login email, full name, payout emails and bank text (when
+// the payout details open), and coupon codes (under coupon keys only).
+// It records in rep exactly which kinds are covered and which are not.
+func (s *Store) affiliateScrubber(ctx context.Context, tx *sql.Tx, affiliateID int64, email, name string, rep *EraseReport) (*scrubber, error) {
+	sc := newScrubber()
+	sc.addEmail(email) // skips the rotated address of an erased affiliate
+	if len(sc.emails) > 0 {
+		rep.RedactedInPayloads = append(rep.RedactedInPayloads, "email (with +tag and alias forms)")
+	}
+	switch n := len(strings.TrimSpace(name)); {
+	case n >= minExactLen:
+		sc.addExact(name)
+		rep.RedactedInPayloads = append(rep.RedactedInPayloads, "full name (as a whole value)")
+	case n > 0:
+		rep.NotRedactedInPayloads = append(rep.NotRedactedInPayloads,
+			fmt.Sprintf("name (shorter than %d characters, too likely to match other values)", minExactLen))
+	}
+	rows, err := tx.QueryContext(ctx, `SELECT code FROM coupons WHERE affiliate_id = ?`, affiliateID)
+	if err != nil {
+		return nil, fmt.Errorf("privacy: erase coupons lookup: %w", err)
+	}
+	var codes []string
+	for rows.Next() {
+		var c string
+		if err := rows.Scan(&c); err != nil {
+			_ = rows.Close()
+			return nil, fmt.Errorf("privacy: erase coupons lookup: %w", err)
+		}
+		codes = append(codes, c)
+	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return nil, fmt.Errorf("privacy: erase coupons lookup: %w", err)
+	}
+	_ = rows.Close()
+	for _, c := range codes {
+		sc.addKeyed("coupon", c)
+	}
+	if len(codes) > 0 {
+		rep.RedactedInPayloads = append(rep.RedactedInPayloads, "coupon codes (under coupon keys)")
+	}
+
+	var sealed []byte
+	err = tx.QueryRowContext(ctx, `SELECT sealed FROM affiliate_payout_details WHERE affiliate_id = ?`, affiliateID).Scan(&sealed)
+	if errors.Is(err, sql.ErrNoRows) {
+		return sc, nil // no payout details on file
+	}
+	if err != nil {
+		return nil, fmt.Errorf("privacy: erase payout details lookup: %w", err)
+	}
+	var fields map[string]any
+	opened := false
+	if s.openPayout != nil {
+		fields, opened = s.openPayout(affiliateID, sealed)
+	}
+	if !opened {
+		if !s.allowSealedPayout {
+			return nil, ErrPayoutDetailsSealed
+		}
+		rep.NotRedactedInPayloads = append(rep.NotRedactedInPayloads,
+			"payout identifiers (the sealed payout details could not be opened; the sealed row itself was deleted)")
+		return sc, nil
+	}
+	for _, k := range []string{"paypal_email", "wise_email"} {
+		if v, ok := fields[k].(string); ok {
+			sc.addEmail(v)
+		}
+	}
+	if v, ok := fields["bank"].(string); ok {
+		sc.addExact(v)
+	}
+	rep.RedactedInPayloads = append(rep.RedactedInPayloads, "payout identifiers (PayPal or Wise email, bank text)")
+	return sc, nil
 }
 
 // exec runs one statement and returns rows affected.

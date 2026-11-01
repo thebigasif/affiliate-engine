@@ -302,8 +302,14 @@ func (e *Engine) runPeriodOnce(ctx context.Context, start, end time.Time) (lines
 	// SQLite t.String() rows are healed by the sqlite.sql migration), so a
 	// plain comparison is correct — no query-side replace() gymnastics
 	// (which also break on PG, where created_at is a real timestamptz).
+	// Refunds count: a fully refunded or upheld commission is cancelled or
+	// clawback and drops out by status; a partly refunded one keeps its
+	// status, so it is split on what is left of it (amount plus its
+	// negative clawback rows), never on the amount first credited.
 	rows, err := tx.QueryContext(ctx, `
-		SELECT c.id, c.affiliate_id, c.amount, c.currency
+		SELECT c.id, c.affiliate_id,
+		       c.amount + `+clawedSQL+`,
+		       c.currency
 		FROM commissions c
 		WHERE c.status IN ('approved','paid')
 		  AND c.created_at >= ? AND c.created_at < ?
@@ -323,9 +329,15 @@ func (e *Engine) runPeriodOnce(ctx context.Context, start, end time.Time) (lines
 			_ = rows.Close()
 			return 0, err
 		}
+		if s.amount <= 0 {
+			continue // refunded in full by its clawback rows
+		}
 		sources = append(sources, s)
 	}
 	_ = rows.Close()
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
 
 	for _, s := range sources {
 		// Tier split: sponsor-tree ancestors by level, rate from mlm_tier_rates.
@@ -395,26 +407,60 @@ func (e *Engine) runPeriodOnce(ctx context.Context, start, end time.Time) (lines
 	return lines, tx.Commit()
 }
 
-// PeriodTotal returns the computed split for one affiliate (audit view),
-// per currency: splits of a dollar and a yen commission are never added.
+// clawedSQL is the (zero or negative) sum of the clawback rows of
+// commission c: what refunds took back from it so far.
+const clawedSQL = `COALESCE((SELECT SUM(k.amount) FROM commissions k
+		                  WHERE k.parent_commission_id = c.id AND k.amount < 0), 0)`
+
+// PeriodTotal returns one affiliate's override earnings for a period, per
+// currency: splits of a dollar and a yen commission are never added.
+//
+// Refunds after the run count: a line whose source commission was since
+// refunded in full, cancelled or upheld as fraud counts 0, and a line
+// whose source was partly refunded counts its rate on what is left of the
+// source (never more than the line recorded). The recorded lines stay as
+// they are (audit trail); this is the total they are worth now.
 func (e *Engine) PeriodTotal(ctx context.Context, periodID, affiliateID int64) (money.Totals, error) {
 	rows, err := e.db.QueryContext(ctx, `
-		SELECT currency, COALESCE(SUM(commission_cents), 0)
-		FROM mlm_period_lines
-		WHERE period_id = ? AND affiliate_id = ?
-		GROUP BY currency`, periodID, affiliateID)
+		SELECT pl.currency, pl.commission_cents, pl.rate_bp_used, c.status,
+		       c.amount + `+clawedSQL+`
+		FROM mlm_period_lines pl
+		JOIN commissions c ON c.id = pl.source_commission_id
+		WHERE pl.period_id = ? AND pl.affiliate_id = ?`, periodID, affiliateID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	out := money.Totals{}
 	for rows.Next() {
-		var c string
-		var v int64
-		if err := rows.Scan(&c, &v); err != nil {
+		var cur, status string
+		var cents, rateBP, net int64
+		if err := rows.Scan(&cur, &cents, &rateBP, &status, &net); err != nil {
 			return nil, err
 		}
-		out.Add(c, v)
+		v, err := netLineCents(cents, rateBP, status, net)
+		if err != nil {
+			return nil, err
+		}
+		out.Add(cur, v)
 	}
 	return out, rows.Err()
+}
+
+// netLineCents is what one override line is worth now: 0 when its source
+// commission is cancelled or clawed back (refunded in full, or upheld as
+// fraud) or has nothing left, else its rate on the source's remaining
+// amount net, capped at the cents the line recorded.
+func netLineCents(recordedCents, rateBP int64, sourceStatus string, sourceNet int64) (int64, error) {
+	if sourceStatus == "cancelled" || sourceStatus == "clawback" || sourceNet <= 0 {
+		return 0, nil
+	}
+	v, ok := bpmath.MulDivBP(sourceNet, rateBP)
+	if !ok {
+		return 0, fmt.Errorf("mlm: override overflow: net=%d rate_bp=%d", sourceNet, rateBP)
+	}
+	if v > recordedCents {
+		v = recordedCents
+	}
+	return v, nil
 }

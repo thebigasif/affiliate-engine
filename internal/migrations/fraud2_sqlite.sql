@@ -22,3 +22,11 @@ CREATE INDEX IF NOT EXISTS ix_commissions_coupon ON commissions(coupon_code, cre
 -- that screened after the credit committed, or not through screening); a
 -- replayed delivery screens it then.
 ALTER TABLE commissions ADD COLUMN screened_at TEXT;
+
+-- hold_group: holds placed together by one partner-wide verdict (a rule
+-- about the affiliate's overall behaviour) share a group, so the owner
+-- reviews them together and releasing one releases the rest. NULL = a
+-- hold on its own.
+ALTER TABLE commission_holds ADD COLUMN hold_group TEXT;
+CREATE INDEX IF NOT EXISTS ix_commission_holds_group ON commission_holds(hold_group)
+    WHERE hold_group IS NOT NULL AND resolved_at IS NULL;

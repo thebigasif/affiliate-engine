@@ -291,6 +291,7 @@ func main() {
 		PayoutRunner:   payoutRunner,
 		RateLimit:      600,
 		LedgerPoster:   poster,
+		UsageScreen:    screened.ScreenUsage,
 		MLM:            mlm.New(h.DB),
 		Gamify:         gamifyEngine,
 		Stats:          analytics.NewTokenStats(h.DB),
@@ -325,12 +326,14 @@ func main() {
 
 	// Billing webhooks: each route exists only when its secret is set.
 	// webhookHandler never echoes adapter errors to the (unauthenticated)
-	// caller.
+	// caller. limitWebhooks caps requests per client IP across all of them
+	// (httpapi.WebhookPerIPPerMinute, far above any real provider burst).
+	limitWebhooks := httpapi.NewIPLimiter(httpapi.WebhookPerIPPerMinute, cfg.TrustedProxies)
 
 	// Paddle webhook (enabled when AE_PADDLE_SECRET is set).
 	if s := os.Getenv("AE_PADDLE_SECRET"); s != "" {
-		mux.HandleFunc("/webhooks/paddle", webhookHandler("paddle",
-			billing.NewPaddleAdapter(s, screened, resolver, billing.NewSQLStore(h.DB))))
+		mux.HandleFunc("/webhooks/paddle", limitWebhooks(webhookHandler("paddle",
+			billing.NewPaddleAdapter(s, screened, resolver, billing.NewSQLStore(h.DB)))))
 	}
 
 	// Chargebee webhook. Basic Auth (AE_CHARGEBEE_USERNAME and/or
@@ -345,23 +348,23 @@ func main() {
 	case cbUser != "" || cbPass != "":
 		cb := billing.NewChargebeeBasicAuthAdapter(cbUser, cbPass, screened, resolver, billing.NewSQLStore(h.DB))
 		cb.Secret = cbSecret
-		mux.HandleFunc("/webhooks/chargebee", webhookHandler("chargebee", cb))
+		mux.HandleFunc("/webhooks/chargebee", limitWebhooks(webhookHandler("chargebee", cb)))
 	case cbSecret != "":
-		mux.HandleFunc("/webhooks/chargebee", webhookHandler("chargebee",
-			billing.NewChargebeeAdapter(cbSecret, screened, resolver, billing.NewSQLStore(h.DB))))
+		mux.HandleFunc("/webhooks/chargebee", limitWebhooks(webhookHandler("chargebee",
+			billing.NewChargebeeAdapter(cbSecret, screened, resolver, billing.NewSQLStore(h.DB)))))
 	}
 
 	// Lemon Squeezy webhook (enabled when AE_LEMONSQUEEZY_SECRET is set).
 	if s := os.Getenv("AE_LEMONSQUEEZY_SECRET"); s != "" {
-		mux.HandleFunc("/webhooks/lemonsqueezy", webhookHandler("lemonsqueezy",
-			billing.NewLemonSqueezyAdapter(s, screened, resolver, billing.NewSQLStore(h.DB))))
+		mux.HandleFunc("/webhooks/lemonsqueezy", limitWebhooks(webhookHandler("lemonsqueezy",
+			billing.NewLemonSqueezyAdapter(s, screened, resolver, billing.NewSQLStore(h.DB)))))
 	}
 
 	// Polar webhook (enabled when AE_POLAR_SECRET, the endpoint's whsec_
 	// secret, is set).
 	if s := os.Getenv("AE_POLAR_SECRET"); s != "" {
-		mux.HandleFunc("/webhooks/polar", webhookHandler("polar",
-			billing.NewPolarAdapter(s, screened, resolver, billing.NewSQLStore(h.DB))))
+		mux.HandleFunc("/webhooks/polar", limitWebhooks(webhookHandler("polar",
+			billing.NewPolarAdapter(s, screened, resolver, billing.NewSQLStore(h.DB)))))
 	}
 
 	// Recurly webhook (enabled when AE_RECURLY_USERNAME _or_
@@ -380,7 +383,7 @@ func main() {
 		if key := os.Getenv("AE_RECURLY_API_KEY"); key != "" {
 			ra.AccountToken = billing.RecurlyAccountToken(key, os.Getenv("AE_RECURLY_API_BASE"))
 		}
-		mux.HandleFunc("/webhooks/recurly", webhookHandler("recurly", ra))
+		mux.HandleFunc("/webhooks/recurly", limitWebhooks(webhookHandler("recurly", ra)))
 	}
 
 	// Stripe webhook (enabled when AE_STRIPE_SECRET is set).
@@ -409,7 +412,7 @@ func main() {
 			sa.Products = f
 			log.Printf("stripe: counting only %d listed products, prices or payment links", len(f.IDs))
 		}
-		mux.HandleFunc("/webhooks/stripe", webhookHandler("stripe", sa))
+		mux.HandleFunc("/webhooks/stripe", limitWebhooks(webhookHandler("stripe", sa)))
 	}
 
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -461,7 +464,8 @@ func main() {
 	}
 
 	srv := &http.Server{
-		Addr: cfg.Listen, Handler: demoGuard(mux, demo),
+		// HSTS on HTTPS requests only (AE_HSTS=0 turns it off).
+		Addr: cfg.Listen, Handler: httpapi.HSTS(demoGuard(mux, demo), cfg.TrustedProxies, httpapi.HSTSFromEnv()),
 		// The redirect endpoint is public: a client that opens a
 		// connection and stalls on headers must not pin a goroutine
 		// (slowloris). ReadTimeout bounds the whole request (webhook
